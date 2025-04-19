@@ -7,6 +7,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.ConstraintViolation;
+import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 
 import java.time.LocalDate;
@@ -18,6 +19,7 @@ import static tyler.server.Constants.*;
 class TaskTest {
     private static Validator validator;
     private Task task;
+    private Priority priority;
 
     private final LocalDate today = LocalDate.now();
     private final LocalDate tomorrow = today.plusDays(1);
@@ -28,18 +30,24 @@ class TaskTest {
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         validator = factory.getValidator();
     }
-    
+
     @BeforeEach
     void setUp() {
-        task = new Task(
-                1L,
-                "Test Task",
-                "This is a test description",
-                tomorrow,
-                nextWeek,
-                (byte) 50,
-                false
-        );
+        priority = Priority.builder()
+            .name("HIGH")
+            .xp((byte) 50)
+            .build();
+
+        task = Task.builder()
+            .id(1L)
+            .name("Test Task")
+            .description("This is a test description")
+            .dueDate(tomorrow)
+            .deadline(nextWeek)
+            .done(false)
+            .priority(priority)
+            .parent(null)
+            .build();
     }
 
     @Test
@@ -53,7 +61,6 @@ class TaskTest {
         task.setName(null);
         Set<ConstraintViolation<Task>> violations = validator.validate(task);
 
-        assertFalse(violations.isEmpty());
         assertEquals(1, violations.size());
         assertEquals("name", violations.iterator().next().getPropertyPath().toString());
     }
@@ -63,27 +70,24 @@ class TaskTest {
         task.setName("");
         Set<ConstraintViolation<Task>> violations = validator.validate(task);
 
-        assertFalse(violations.isEmpty());
         assertEquals(2, violations.size());
         assertEquals("name", violations.iterator().next().getPropertyPath().toString());
     }
 
     @Test
     void validate_NameExceedsMaxLength_ShouldFail() {
-        task.setName("a".repeat(MAX_NAME_LENGTH + 1));
+        task.setName("a".repeat(MAX_TASK_NAME_LENGTH + 1));
         Set<ConstraintViolation<Task>> violations = validator.validate(task);
 
-        assertFalse(violations.isEmpty());
         assertEquals(1, violations.size());
         assertEquals("name", violations.iterator().next().getPropertyPath().toString());
     }
 
     @Test
     void validate_DescriptionExceedsMaxLength_ShouldFail() {
-        task.setDescription("a".repeat(MAX_DESCRIPTION_LENGTH + 1));
+        task.setDescription("a".repeat(MAX_TASK_DESCRIPTION_LENGTH + 1));
         Set<ConstraintViolation<Task>> violations = validator.validate(task);
 
-        assertFalse(violations.isEmpty());
         assertEquals(1, violations.size());
         assertEquals("description", violations.iterator().next().getPropertyPath().toString());
     }
@@ -93,7 +97,6 @@ class TaskTest {
         task.setDueDate(today.minusDays(1));
         Set<ConstraintViolation<Task>> violations = validator.validate(task);
 
-        assertFalse(violations.isEmpty());
         assertEquals(1, violations.size());
         assertEquals("dueDate", violations.iterator().next().getPropertyPath().toString());
     }
@@ -103,7 +106,6 @@ class TaskTest {
         task.setDeadline(null);
         Set<ConstraintViolation<Task>> violations = validator.validate(task);
 
-        assertFalse(violations.isEmpty());
         assertEquals(1, violations.size());
         assertEquals("deadline", violations.iterator().next().getPropertyPath().toString());
     }
@@ -113,29 +115,16 @@ class TaskTest {
         task.setDeadline(today.minusDays(1));
         Set<ConstraintViolation<Task>> violations = validator.validate(task);
 
-        assertFalse(violations.isEmpty());
-        assertEquals(1, violations.size());
-        assertEquals("deadline", violations.iterator().next().getPropertyPath().toString());
+        assertEquals(2, violations.size());
     }
 
     @Test
-    void validate_XpTooLow_ShouldFail() {
-        task.setXp((byte) 0);
+    void validate_NullPriority_ShouldFail() {
+        task.setPriority(null);
         Set<ConstraintViolation<Task>> violations = validator.validate(task);
 
-        assertFalse(violations.isEmpty());
         assertEquals(1, violations.size());
-        assertEquals("xp", violations.iterator().next().getPropertyPath().toString());
-    }
-
-    @Test
-    void validate_XpTooHigh_ShouldFail() {
-        task.setXp((byte) (MAX_XP + 1));
-        Set<ConstraintViolation<Task>> violations = validator.validate(task);
-
-        assertFalse(violations.isEmpty());
-        assertEquals(1, violations.size());
-        assertEquals("xp", violations.iterator().next().getPropertyPath().toString());
+        assertEquals("priority", violations.iterator().next().getPropertyPath().toString());
     }
 
     @Test

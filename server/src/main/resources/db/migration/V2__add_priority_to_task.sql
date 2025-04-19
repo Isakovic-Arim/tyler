@@ -1,0 +1,28 @@
+CREATE SEQUENCE IF NOT EXISTS priority_seq START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE priority
+(
+    id   BIGINT       NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    xp   SMALLINT     NOT NULL,
+    CONSTRAINT pk_priority PRIMARY KEY (id)
+);
+
+ALTER TABLE task
+    ADD parent_id BIGINT;
+
+ALTER TABLE task
+    ADD priority_id BIGINT;
+
+ALTER TABLE task
+    ALTER COLUMN priority_id SET NOT NULL;
+
+ALTER TABLE task
+    ADD CONSTRAINT FK_TASK_ON_PARENT FOREIGN KEY (parent_id) REFERENCES task (id);
+
+ALTER TABLE task
+    ADD CONSTRAINT FK_TASK_ON_PRIORITY FOREIGN KEY (priority_id) REFERENCES priority (id);
+
+ALTER TABLE task
+DROP
+COLUMN xp;

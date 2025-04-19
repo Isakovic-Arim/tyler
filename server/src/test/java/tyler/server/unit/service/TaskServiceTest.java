@@ -1,16 +1,21 @@
 package tyler.server.unit.service;
 
+import jakarta.validation.ConstraintViolationException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
-import tyler.server.entity.dto.TaskDTO;
-import tyler.server.entity.mapper.TaskMapper;
+import tyler.server.dto.task.TaskRequestDTO;
+import tyler.server.dto.task.TaskResponseDTO;
+import tyler.server.mapper.TaskMapper;
 import tyler.server.exception.ResourceNotFoundException;
 import tyler.server.repository.TaskRepository;
 import tyler.server.service.TaskService;
+import tyler.server.validation.TaskValidator;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -21,145 +26,186 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TaskServiceTest {
-    @Mock
-    private TaskRepository taskRepository;
 
-    @InjectMocks
-    private TaskService taskService;
+    @Mock private TaskRepository taskRepository;
+    @Mock private TaskMapper taskMapper;
+    @Mock private TaskValidator taskValidator;
+    @InjectMocks private TaskService taskService;
 
-    private final LocalDate today = LocalDate.now();
-    private final LocalDate tomorrow = today.plusDays(1);
-    private final TaskDTO taskDTO = new TaskDTO(
-            1L,
-            "Valid Task",
-            "A well-formed description",
-            today,
-            tomorrow,
-            (byte) 10,
-            false
-    );
+    private LocalDate today, tomorrow;
+    private Priority priority;
+    private TaskRequestDTO defaultRequestDTO;
+    private TaskResponseDTO responseDTO;
+    private Task baseTask;
+
+    @BeforeEach
+    void setUp() {
+        today = LocalDate.now();
+        tomorrow = today.plusDays(1);
+        priority = Priority.builder().id(1L).name("HIGH").xp((byte) 10).build();
+
+        defaultRequestDTO = new TaskRequestDTO(null, "Valid Task", "A well-formed description", today, tomorrow, 1L);
+        responseDTO = new TaskResponseDTO(1L, 0, "Valid Task", "A well-formed description", today.toString(), (byte) 10, false);
+        baseTask = Task.builder().id(1L).name("Valid Task").description("A well-formed description").dueDate(today).deadline(tomorrow).priority(priority).done(false).build();
+    }
+
+    private TaskRequestDTO requestWithParent(Long parentId) {
+        return new TaskRequestDTO(parentId, "Subtask", "A subtask description", today, tomorrow, 1L);
+    }
+
+    private TaskRequestDTO requestWithPriority(Long priorityId) {
+        return new TaskRequestDTO(null, "Task", "Description", today, tomorrow, priorityId);
+    }
 
     @Test
     void getAllTasks_ShouldReturnListOfTaskDTOs() {
-        when(taskRepository.findAllTasks()).thenReturn(List.of(taskDTO));
+        when(taskRepository.findAllTasks()).thenReturn(List.of(responseDTO));
 
-        List<TaskDTO> result = taskService.getAllTasks();
+        var result = taskService.getAllTasks();
 
-        assertThat(result).hasSize(1);
-        assertThat(result.getFirst().name()).isEqualTo("Valid Task");
+        assertThat(result).hasSize(1).first().satisfies(task -> assertThat(task.name()).isEqualTo("Valid Task"));
         verify(taskRepository).findAllTasks();
     }
 
     @Test
-    void getTaskById_ExistingId_ShouldReturnTaskDTO() {
-        when(taskRepository.findTaskById(1L)).thenReturn(Optional.of(taskDTO));
+    void getTaskById_ShouldHandleFoundAndNotFoundCases() {
+        when(taskRepository.findTaskById(1L)).thenReturn(Optional.of(responseDTO));
+        assertThat(taskService.getTaskById(1L).name()).isEqualTo("Valid Task");
 
-        TaskDTO result = taskService.getTaskById(1L);
-
-        assertThat(result.name()).isEqualTo("Valid Task");
-        verify(taskRepository).findTaskById(1L);
+        when(taskRepository.findTaskById(999L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> taskService.getTaskById(999L)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void getTaskById_NonExistingId_ShouldThrowException() {
-        doThrow(new ResourceNotFoundException("Task with ID 999 does not exist"))
-                .when(taskRepository).findTaskById(999L);
+    void saveTask_ShouldHandleValidSaveAndFailureCases() {
+        var mappedTask = baseTask.toBuilder().id(null).build();
 
-        assertThatThrownBy(() -> taskService.getTaskById(999L))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("does not exist");
-        verify(taskRepository).findTaskById(999L);
+        when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(mappedTask);
+        when(taskRepository.save(mappedTask)).thenReturn(baseTask);
+        assertThat(taskService.saveTask(defaultRequestDTO)).isEqualTo(1L);
+
+        when(taskRepository.save(mappedTask)).thenThrow(new ConstraintViolationException("DB fail", null));
+        assertThatThrownBy(() -> taskService.saveTask(defaultRequestDTO)).isInstanceOf(ConstraintViolationException.class);
     }
 
     @Test
-    void saveTask_ShouldReturnGeneratedId() {
-        Task mappedTask = TaskMapper.INSTANCE.DtoToTask(taskDTO);
-        mappedTask.setId(1L);
+    void saveTask_ShouldHandleNullAndInvalidPriority() {
+        var request = requestWithPriority(null);
+        var mappedTask = baseTask.toBuilder().priority(null).build();
+        when(taskMapper.RequestDtoToTask(request)).thenReturn(mappedTask);
+        when(taskRepository.save(mappedTask)).thenReturn(baseTask);
+        assertThat(taskService.saveTask(request)).isEqualTo(1L);
 
-        when(taskRepository.save(any(Task.class))).thenReturn(mappedTask);
-
-        Long result = taskService.saveTask(taskDTO);
-
-        assertThat(result).isEqualTo(1L);
-        verify(taskRepository).save(any(Task.class));
+        var invalidRequest = requestWithPriority(999L);
+        when(taskMapper.RequestDtoToTask(invalidRequest)).thenThrow(new ConstraintViolationException("Invalid priority", null));
+        assertThatThrownBy(() -> taskService.saveTask(invalidRequest)).isInstanceOf(ConstraintViolationException.class);
     }
 
     @Test
-    void saveTask_ShouldThrowException_WhenSaveFails() {
-        doThrow(new IllegalArgumentException("DB fail")).when(taskRepository).save(any(Task.class));
+    void saveTask_ShouldHandleParentAndSubtaskCases() {
+        var parent = baseTask;
+        var request = requestWithParent(1L);
+        var subtask = baseTask.toBuilder().id(null).name("Subtask").parent(parent).build();
+        var savedSubtask = subtask.toBuilder().id(2L).build();
 
-        assertThatThrownBy(() -> taskService.saveTask(taskDTO))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Error saving task");
+        when(taskMapper.RequestDtoToTask(request)).thenReturn(subtask);
+        when(taskRepository.save(subtask)).thenReturn(savedSubtask);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
 
-        verify(taskRepository).save(any(Task.class));
+        assertThat(taskService.saveTask(request)).isEqualTo(2L);
     }
 
     @Test
-    void updateTask_ShouldSaveUpdatedTask_WhenIdExists() {
+    void saveTask_ShouldThrow_WhenParentInvalid() {
+        var request = requestWithParent(999L);
+        when(taskMapper.RequestDtoToTask(request)).thenThrow(new ConstraintViolationException("Invalid parent", null));
+        assertThatThrownBy(() -> taskService.saveTask(request)).isInstanceOf(ConstraintViolationException.class);
+    }
+
+    @Test
+    void updateTask_ShouldUpdateIfExists_ElseThrow() {
+        var updated = baseTask;
         when(taskRepository.existsById(1L)).thenReturn(true);
+        when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(updated);
 
-        taskService.updateTask(1L, taskDTO);
+        taskService.updateTask(1L, defaultRequestDTO);
+        verify(taskRepository).save(argThat(task -> task.getId() == 1L));
 
-        verify(taskRepository).existsById(1L);
-        verify(taskRepository).save(any(Task.class));
-    }
-
-    @Test
-    void updateTask_ShouldThrowException_WhenIdDoesNotExist() {
         when(taskRepository.existsById(999L)).thenReturn(false);
-
-        assertThatThrownBy(() -> taskService.updateTask(999L, taskDTO))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("does not exist");
-
-        verify(taskRepository).existsById(999L);
-        verify(taskRepository, never()).save(any());
+        assertThatThrownBy(() -> taskService.updateTask(999L, defaultRequestDTO)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void markTaskAsDone_ShouldSetDoneTrue_WhenTaskExists() {
-        Task incompleteTask = new Task(
-                1L, "Task", "desc", today, tomorrow, (byte) 10, false
-        );
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(incompleteTask));
+    void updateSubTask_ShouldPreserveParentInfo() {
+        var parent = baseTask;
+        var subtask = baseTask.toBuilder().id(2L).name("Updated Subtask").parent(parent).build();
+        var request = requestWithParent(1L);
 
+        when(taskRepository.existsById(1L)).thenReturn(true);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
+        when(taskMapper.RequestDtoToTask(request)).thenReturn(subtask);
+
+        taskService.updateTask(1L, request);
+        assertThat(subtask.getParent().getName()).isEqualTo(parent.getName());
+        verify(taskRepository).save(subtask);
+    }
+
+    @Test
+    void markTaskAsDone_ShouldHandleValidAndMissingCases() {
+        var task = baseTask.toBuilder().done(false).build();
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        taskService.markTaskAsDone(1L);
+        assertThat(task.isDone()).isTrue();
+
+        when(taskRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> taskService.markTaskAsDone(999L)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void markParentAsDone_ShouldMarkSubtasks() {
+        var parent = baseTask.toBuilder().done(false).build();
+        var sub = baseTask.toBuilder().id(2L).parent(parent).done(false).build();
+        parent.getSubtasks().add(sub);
+
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
         taskService.markTaskAsDone(1L);
 
-        assertThat(incompleteTask.isDone()).isTrue();
-        verify(taskRepository).findById(1L);
+        assertThat(parent.isDone()).isTrue();
+        assertThat(sub.isDone()).isTrue();
     }
 
     @Test
-    void markTaskAsDone_ShouldThrowException_WhenTaskNotFound() {
-        when(taskRepository.findById(999L)).thenReturn(Optional.empty());
+    void deleteTask_ShouldDeleteIfExists_ElseThrow() {
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
+        taskService.deleteTask(1L);
+        verify(taskRepository).deleteById(1L);
 
-        assertThatThrownBy(() -> taskService.markTaskAsDone(999L))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("does not exist");
-
-        verify(taskRepository).findById(999L);
+        when(taskRepository.findById(999L)).thenThrow(new ResourceNotFoundException("Invalid task"));
+        assertThatThrownBy(() -> taskService.deleteTask(999L)).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void deleteTask_ShouldDelete_WhenIdExists() {
-        when(taskRepository.existsById(1L)).thenReturn(true);
+    void deleteParentTask_ShouldClearSubtasks() {
+        var parent = baseTask;
+        var sub = baseTask.toBuilder().id(2L).parent(parent).build();
+        parent.getSubtasks().add(sub);
+
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
 
         taskService.deleteTask(1L);
-
-        verify(taskRepository).existsById(1L);
-        verify(taskRepository).deleteById(1L);
+        assertThat(parent.getSubtasks()).isEmpty();
     }
 
     @Test
-    void deleteTask_ShouldThrowException_WhenIdDoesNotExist() {
-        when(taskRepository.existsById(999L)).thenReturn(false);
+    void deleteSubtask_ShouldRemoveFromParent() {
+        var parent = baseTask;
+        var sub = baseTask.toBuilder().id(2L).parent(parent).build();
+        parent.getSubtasks().add(sub);
 
-        assertThatThrownBy(() -> taskService.deleteTask(999L))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("does not exist");
+        when(taskRepository.findById(2L)).thenReturn(Optional.of(sub));
+        taskService.deleteTask(2L);
 
-        verify(taskRepository).existsById(999L);
-        verify(taskRepository, never()).deleteById(any());
+        verify(taskRepository).deleteById(2L);
+        assertThat(parent.getSubtasks()).doesNotContain(sub);
     }
 }

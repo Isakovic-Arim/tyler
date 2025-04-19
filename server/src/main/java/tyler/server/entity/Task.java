@@ -1,32 +1,49 @@
 package tyler.server.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import tyler.server.validation.constraints.ConsistentTaskDates;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 import static tyler.server.Constants.*;
 
-@Data
 @Entity
 @Table(name = "task")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder(toBuilder = true)
+@ConsistentTaskDates
 public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Task parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Task> subtasks = new ArrayList<>();
+
+    @NotNull(message = "Priority is required")
+    @ManyToOne(fetch = FetchType.EAGER)
+    @Valid
+    private Priority priority;
+
     @NotBlank(message = "Task name cannot be blank")
-    @Size(min = 3, max = MAX_NAME_LENGTH, message = "Task name must be between 3 and " + MAX_NAME_LENGTH + " characters")
-    @Column(name = "name", nullable = false, length = MAX_NAME_LENGTH)
+    @Size(min = 3, max = MAX_TASK_NAME_LENGTH, message = "Task name must be between 3 and " + MAX_TASK_NAME_LENGTH + " characters")
+    @Column(name = "name", nullable = false, length = MAX_TASK_NAME_LENGTH)
     private String name;
 
-    @Size(max = MAX_DESCRIPTION_LENGTH, message = "Description cannot exceed " + MAX_DESCRIPTION_LENGTH + " characters")
-    @Column(name = "description", length = MAX_DESCRIPTION_LENGTH)
+    @Size(max = MAX_TASK_DESCRIPTION_LENGTH, message = "Description cannot exceed " + MAX_TASK_DESCRIPTION_LENGTH + " characters")
+    @Column(name = "description", length = MAX_TASK_DESCRIPTION_LENGTH)
     private String description;
 
     @FutureOrPresent(message = "Due date must be in the future or present")
@@ -38,11 +55,28 @@ public class Task {
     @Column(name = "deadline", nullable = false)
     private LocalDate deadline;
 
-    @Min(value = 1, message = "XP must be at least 1")
-    @Max(value = MAX_XP, message = "XP cannot exceed " + MAX_XP)
-    @Column(name = "xp", nullable = false)
-    private byte xp;
-
     @Column(name = "done", nullable = false)
     private boolean done;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Task )) return false;
+        return id != null && id.equals(((Task) o).getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+
+    public void addSubtask(Task subtask) {
+        subtasks.add(subtask);
+        subtask.setParent(this);
+    }
+
+    public void removeSubtask(Task subtask) {
+        subtasks.remove(subtask);
+        subtask.setParent(null);
+    }
 }

@@ -1,11 +1,12 @@
-package tyler.server.resource;
+package tyler.server.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import tyler.server.entity.dto.TaskDTO;
+import tyler.server.dto.task.TaskRequestDTO;
+import tyler.server.dto.task.TaskResponseDTO;
 import tyler.server.service.TaskService;
 
 import java.net.URI;
@@ -22,18 +23,17 @@ public class TaskResource {
     }
 
     @GetMapping
-    public ResponseEntity<List<TaskDTO>> getTasks() {
+    public ResponseEntity<List<TaskResponseDTO>> getTasks() {
         return ResponseEntity.ok().body(taskService.getAllTasks());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TaskDTO> getTaskById(@PathVariable Long id) {
-        TaskDTO task = taskService.getTaskById(id);
-        return ResponseEntity.ok(task);
+    public ResponseEntity<TaskResponseDTO> getTaskById(@PathVariable Long id) {
+        return ResponseEntity.ok(taskService.getTaskById(id));
     }
 
     @PostMapping
-    public ResponseEntity<Void> createTask(@Valid @RequestBody TaskDTO task) {
+    public ResponseEntity<Void> createTask(@Valid @RequestBody TaskRequestDTO task) {
         Long id = taskService.saveTask(task);
 
         URI location = ServletUriComponentsBuilder
@@ -46,7 +46,7 @@ public class TaskResource {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updateTask(@PathVariable Long id, @Valid @RequestBody TaskDTO task) {
+    public ResponseEntity<Void> updateTask(@PathVariable Long id, @Valid @RequestBody TaskRequestDTO task) {
         taskService.updateTask(id, task);
         return ResponseEntity.ok().build();
     }
