@@ -11,23 +11,28 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
+import tyler.server.entity.User;
 import tyler.server.dto.task.TaskRequestDTO;
 import tyler.server.repository.PriorityRepository;
 import tyler.server.repository.TaskRepository;
+import tyler.server.repository.UserRepository;
 
-import java.time.LocalDate;
+import java.time.*;
 import java.util.*;
 
 import static io.restassured.RestAssured.given;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.hamcrest.Matchers.*;
 import static tyler.server.Constants.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TaskResourceTest {
@@ -47,6 +52,8 @@ public class TaskResourceTest {
     private TaskRepository taskRepository;
     @Autowired
     private PriorityRepository priorityRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     @BeforeAll
     void setUp(@Value("${local.server.port}") int port) {
@@ -102,6 +109,31 @@ public class TaskResourceTest {
         if (description != null) request.body("description", equalTo(description));
         if (xp != null) request.body("xp", equalTo(xp.intValue()));
         if (done != null) request.body("done", equalTo(done));
+    }
+
+    private User createTestUser(int dailyXpQuota) {
+        User user = User.builder()
+                .currentXp(0)
+                .dailyXpQuota(dailyXpQuota)
+                .currentStreak(0)
+                .lastAchievedDate(null)
+                .build();
+        userRepository.save(user);
+        return user;
+    }
+
+    private Task createTaskWithUser(String name, User user, Priority priority) {
+        Task task = Task.builder()
+                .name(name)
+                .description(DEFAULT_DESCRIPTION)
+                .dueDate(null)
+                .deadline(LocalDate.now().plusDays(1))
+                .done(false)
+                .priority(priority)
+                .build();
+        user.addTask(task);
+        taskRepository.save(task);
+        return task;
     }
     // endregion
 
@@ -386,6 +418,137 @@ public class TaskResourceTest {
         given().when().patch(TASKS_ENDPOINT + "/{id}/done", parent.getId()).then().statusCode(200);
 
         verifyTask(child.getId(), null, null, null, true);
+    }
+
+    @Test
+    void markTaskAsDone_insufficientXp_doesNotUpdateStreak() {
+        // Given
+        User user = createTestUser(10); // Daily quota of 10 XP
+        Priority lowPriority = createPriorityWithXp("LOW", (byte) 3);
+        Task task = createTaskWithUser("Low XP Task", user, lowPriority);
+
+        // When
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+
+        // Then
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentXp()).isEqualTo(3);
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(0);
+        assertThat(updatedUser.getLastAchievedDate()).isNull();
+    }
+
+    @Test
+    void markTaskAsDone_sufficientXp_updatesStreak() {
+        // Given
+        User user = createTestUser(5); // Daily quota of 5 XP
+        Priority highPriority = createPriorityWithXp("HIGH", (byte) 6);
+        Task task = createTaskWithUser("High XP Task", user, highPriority);
+
+        // When
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+
+        // Then
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentXp()).isEqualTo(1); // 6 - 5 = 1, so it wraps around to 1
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(1);
+        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void markTaskAsDone_multipleTasks_accumulatesXp() {
+        // Given
+        User user = createTestUser(10); // Daily quota of 10 XP
+        Priority priority = createPriorityWithXp("MEDIUM", (byte) 4);
+        Task task1 = createTaskWithUser("Task 1", user, priority);
+        Task task2 = createTaskWithUser("Task 2", user, priority);
+        Task task3 = createTaskWithUser("Task 3", user, priority);
+
+        // When
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task3.getId()).then().statusCode(200);
+
+        // Then
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentXp()).isEqualTo(2);
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(1);
+        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void markTaskAsDone_consecutiveDays_maintainsStreak() {
+        // Given
+        User user = createTestUser(5);
+        Priority priority = createPriorityWithXp("HIGH", (byte) 6);
+        Task task1 = createTaskWithUser("Day 1 Task", user, priority);
+        Task task2 = createTaskWithUser("Day 2 Task", user, priority);
+
+        // When - Complete task on first day
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
+
+        // Then
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(1);
+        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
+        updatedUser.setLastAchievedDate(LocalDate.now().minusDays(1));
+        userRepository.save(updatedUser);
+
+        // When - Complete task on second day
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
+
+        // Then
+        updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(2);
+        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
+        assertThat(updatedUser.getCurrentXp()).isEqualTo(2);
+    }
+
+    @Test
+    void markTaskAsDone_skippedDay_resetsStreak() {
+        // Given
+        User user = createTestUser(5);
+        Priority priority = createPriorityWithXp("HIGH", (byte) 6);
+        Task task1 = createTaskWithUser("Day 1 Task", user, priority);
+        Task task2 = createTaskWithUser("Day 3 Task", user, priority);
+
+        // When - Complete task on first day
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
+
+        // Simulate skipping a day
+        user.setLastAchievedDate(LocalDate.now().minusDays(2));
+        userRepository.save(user);
+
+        // Complete task on third day
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
+
+        // Then
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(1);
+        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void markTaskAsDone_taskWithSubtasks_aggregatesXp() {
+        // Given
+        User user = createTestUser(10); // Daily quota of 10 XP
+        Priority parentPriority = createPriorityWithXp("PARENT", (byte) 5);
+        Priority childPriority = createPriorityWithXp("CHILD", (byte) 3);
+        Task parentTask = createTaskWithUser("Parent Task", user, parentPriority);
+        Task childTask1 = createTaskWithUser("Child Task", user, childPriority);
+        Task childTask2 = createTaskWithUser("Child Task", user, childPriority);
+
+        parentTask.addSubtask(childTask1);
+        parentTask.addSubtask(childTask2);
+        taskRepository.save(parentTask);
+
+        // When
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", parentTask.getId()).then().statusCode(200);
+
+        // Then
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentXp()).isEqualTo(1);
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(1);
+        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
     }
     // endregion
 

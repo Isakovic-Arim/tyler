@@ -12,7 +12,7 @@ public abstract class PriorityMapper {
     protected PriorityRepository priorityRepository;
 
     @Autowired
-    protected void setPriorityRepository(PriorityRepository priorityRepository) {;
+    protected void setPriorityRepository(PriorityRepository priorityRepository) {
         this.priorityRepository = priorityRepository;
     }
 

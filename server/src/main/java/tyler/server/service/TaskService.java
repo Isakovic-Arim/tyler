@@ -21,11 +21,13 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TaskMapper taskMapper;
     private final TaskValidator validator;
+    private final ProgressService progressService;
 
-    public TaskService(TaskRepository taskRepository, TaskMapper taskMapper, TaskValidator validator) {
+    public TaskService(TaskRepository taskRepository, TaskMapper taskMapper, TaskValidator validator, ProgressService progressService) {
         this.taskRepository = taskRepository;
         this.taskMapper = taskMapper;
         this.validator = validator;
+        this.progressService = progressService;
     }
 
     public List<TaskResponseDTO> getAllTasks() {
@@ -71,7 +73,12 @@ public class TaskService {
     public void markTaskAsDone(Long id) {
         Task task = findTaskById(id);
         task.setDone(true);
-        task.getSubtasks().forEach(subtask -> subtask.setDone(true));
+        progressService.handleTaskCompletion(task);
+        
+        task.getSubtasks().forEach(subtask -> {
+            subtask.setDone(true);
+            progressService.handleTaskCompletion(subtask);
+        });
     }
 
     @Transactional

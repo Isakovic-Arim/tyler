@@ -5,20 +5,18 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import static tyler.server.Constants.MAX_PRIORITY_NAME_LENGTH;
 import static tyler.server.Constants.MAX_PRIORITY_XP;
 
-@Data
 @Entity
 @Table(name = "priority")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class Priority {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)

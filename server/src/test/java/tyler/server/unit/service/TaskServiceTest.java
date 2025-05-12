@@ -14,6 +14,7 @@ import tyler.server.dto.task.TaskResponseDTO;
 import tyler.server.mapper.TaskMapper;
 import tyler.server.exception.ResourceNotFoundException;
 import tyler.server.repository.TaskRepository;
+import tyler.server.service.ProgressService;
 import tyler.server.service.TaskService;
 import tyler.server.validation.TaskValidator;
 
@@ -30,6 +31,7 @@ class TaskServiceTest {
     @Mock private TaskRepository taskRepository;
     @Mock private TaskMapper taskMapper;
     @Mock private TaskValidator taskValidator;
+    @Mock private ProgressService progressService;
     @InjectMocks private TaskService taskService;
 
     private LocalDate today, tomorrow;
