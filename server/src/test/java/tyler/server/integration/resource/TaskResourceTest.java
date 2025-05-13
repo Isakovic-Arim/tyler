@@ -550,6 +550,55 @@ public class TaskResourceTest {
         assertThat(updatedUser.getCurrentStreak()).isEqualTo(1);
         assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
     }
+
+    @Test
+    void markTaskAsDone_userHasDayOff_doesNotUpdateXp() {
+        // Given
+        User user = createTestUser(5); // Daily quota of 5 XP
+        user.setOffDays(Set.of(LocalDate.now().getDayOfWeek()));
+        user.setCurrentStreak(3);
+        user.setLastAchievedDate(LocalDate.now().minusDays(1));
+        userRepository.save(user);
+
+        Priority priority = createPriorityWithXp("MEDIUM", (byte) 4);
+        Task task = createTaskWithUser("Task on Day Off", user, priority);
+
+        // When
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+
+        // Then
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentXp()).isEqualTo(0);
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(4);
+    }
+
+    @Test
+    void markTaskAsDone_userHasDayOffAndMissesDailyQuota_keepsStreak() {
+        // Given
+        User user = createTestUser(10);
+        user.setCurrentStreak(5); // User already has a streak of 5 days
+
+        // Set yesterday and the day before as a day off
+        DayOfWeek yesterday = LocalDate.now().minusDays(1).getDayOfWeek();
+        user.setOffDays(Set.of(yesterday, yesterday.minus(1)));
+        user.setDaysOffPerWeek((byte) 2);
+
+        // Last achieved date was 2 days ago (before the day off)
+        user.setLastAchievedDate(LocalDate.now().minusDays(3));
+        userRepository.save(user);
+
+        Priority priority = createPriorityWithXp("HIGH", (byte) 15);
+        Task task = createTaskWithUser("Today's Task", user, priority);
+
+        // When - Complete today's task
+        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+
+        // Then - Streak should be preserved and incremented
+        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(updatedUser.getCurrentStreak()).isEqualTo(6); // Streak is incremented
+        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
+        assertThat(updatedUser.getCurrentXp()).isEqualTo(5); // 15 - 10 = 5
+    }
     // endregion
 
     // region DELETE

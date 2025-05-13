@@ -17,6 +17,7 @@ import tyler.server.repository.TaskRepository;
 import tyler.server.service.ProgressService;
 import tyler.server.service.TaskService;
 import tyler.server.validation.TaskValidator;
+import tyler.server.entity.User;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -209,5 +210,27 @@ class TaskServiceTest {
 
         verify(taskRepository).deleteById(2L);
         assertThat(parent.getSubtasks()).doesNotContain(sub);
+    }
+
+    @Test
+    void markTaskAsDone_ShouldHandleOffDayCorrectly() {
+        User user = User.builder()
+                .id(1L)
+                .currentXp(0)
+                .dailyXpQuota(100)
+                .currentStreak(0)
+                .build();
+
+        Task task = baseTask.toBuilder()
+                .user(user)
+                .done(false)
+                .build();
+
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+
+        taskService.markTaskAsDone(1L);
+
+        verify(progressService).handleTaskCompletion(task);
+        assertThat(task.isDone()).isTrue();
     }
 }

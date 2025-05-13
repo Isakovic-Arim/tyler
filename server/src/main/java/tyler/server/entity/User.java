@@ -7,9 +7,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.Builder;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "app_user")
@@ -38,6 +40,16 @@ public class User {
 
     @Column(name = "last_achieved_date")
     private LocalDate lastAchievedDate;
+
+    @Column(name = "days_off_per_week", nullable = false)
+    private byte daysOffPerWeek;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "days_off", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "day_of_week")
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Set<DayOfWeek> offDays = Set.of();
 
     public void addTask(Task task) {
         tasks.add(task);

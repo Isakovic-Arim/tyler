@@ -11,6 +11,7 @@ import tyler.server.entity.User;
 import tyler.server.service.ProgressService;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -119,5 +120,139 @@ class ProgressServiceTest {
         assertThat(user.getCurrentXp()).isEqualTo(0);
         assertThat(user.getCurrentStreak()).isEqualTo(6);
         assertThat(user.getLastAchievedDate()).isEqualTo(today);
+    }
+
+    @Test
+    void handleTaskCompletion_ShouldSkipXpOnOffDay() {
+        user.setOffDays(Set.of(today.getDayOfWeek()));
+        
+        progressService.handleTaskCompletion(task);
+
+        assertThat(user.getCurrentXp()).isZero();
+        assertThat(user.getCurrentStreak()).isEqualTo(1);
+        assertThat(user.getLastAchievedDate()).isEqualTo(today);
+    }
+
+    @Test
+    void handleTaskCompletion_ShouldAddXpOnNonOffDay() {
+        user.setOffDays(Set.of(today.plusDays(1).getDayOfWeek())); // Set tomorrow as off day
+        
+        progressService.handleTaskCompletion(task);
+
+        assertThat(user.getCurrentXp()).isEqualTo(10);
+        assertThat(user.getCurrentStreak()).isZero();
+        assertThat(user.getLastAchievedDate()).isNull();
+    }
+
+    @Test
+    void relocateTasksForOffDays_ShouldRelocateTasksOnOffDays() {
+        LocalDate tomorrow = today.plusDays(1);
+        LocalDate dayAfterTomorrow = today.plusDays(2);
+        
+        Task task1 = Task.builder()
+                .id(2L)
+                .name("Task 1")
+                .dueDate(tomorrow)
+                .deadline(dayAfterTomorrow)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        Task task2 = Task.builder()
+                .id(3L)
+                .name("Task 2")
+                .dueDate(dayAfterTomorrow)
+                .deadline(dayAfterTomorrow.plusDays(1))
+                .priority(priority)
+                .user(user)
+                .build();
+
+        user.addTask(task1);
+        user.addTask(task2);
+        
+        // Set tomorrow as off day
+        user.setOffDays(Set.of(tomorrow.getDayOfWeek()));
+
+        progressService.relocateTasksForOffDays(user);
+
+        // Task1 should be moved to day after tomorrow
+        assertThat(task1.getDueDate()).isEqualTo(dayAfterTomorrow);
+        // Task2 should remain unchanged
+        assertThat(task2.getDueDate()).isEqualTo(dayAfterTomorrow);
+    }
+
+    @Test
+    void relocateTasksForOffDays_ShouldNotRelocateTasksBeyondDeadline() {
+        LocalDate tomorrow = today.plusDays(1);
+        
+        Task task = Task.builder()
+                .id(2L)
+                .name("Task with tight deadline")
+                .dueDate(tomorrow)
+                .deadline(tomorrow) // Same day deadline
+                .priority(priority)
+                .user(user)
+                .build();
+
+        user.addTask(task);
+        
+        // Set tomorrow as off day
+        user.setOffDays(Set.of(tomorrow.getDayOfWeek()));
+
+        progressService.relocateTasksForOffDays(user);
+
+        // Task should not be moved since it would exceed deadline
+        assertThat(task.getDueDate()).isEqualTo(tomorrow);
+    }
+
+    @Test
+    void relocateTasksForOffDays_ShouldHandleMultipleOffDays() {
+        LocalDate tomorrow = today.plusDays(1);
+        LocalDate dayAfterTomorrow = today.plusDays(2);
+        LocalDate threeDaysLater = today.plusDays(3);
+        
+        Task task = Task.builder()
+                .id(2L)
+                .name("Task spanning multiple off days")
+                .dueDate(tomorrow)
+                .deadline(threeDaysLater)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        user.addTask(task);
+        
+        // Set tomorrow and day after tomorrow as off days
+        user.setOffDays(Set.of(tomorrow.getDayOfWeek(), dayAfterTomorrow.getDayOfWeek()));
+
+        progressService.relocateTasksForOffDays(user);
+
+        // Task should be moved to three days later
+        assertThat(task.getDueDate()).isEqualTo(threeDaysLater);
+    }
+
+    @Test
+    void relocateTasksForOffDays_ShouldNotRelocateCompletedTasks() {
+        LocalDate tomorrow = today.plusDays(1);
+        
+        Task completedTask = Task.builder()
+                .id(2L)
+                .name("Completed Task")
+                .dueDate(tomorrow)
+                .deadline(tomorrow.plusDays(1))
+                .priority(priority)
+                .user(user)
+                .done(true)
+                .build();
+
+        user.addTask(completedTask);
+        
+        // Set tomorrow as off day
+        user.setOffDays(Set.of(tomorrow.getDayOfWeek()));
+
+        progressService.relocateTasksForOffDays(user);
+
+        // Completed task should not be moved
+        assertThat(completedTask.getDueDate()).isEqualTo(tomorrow);
     }
 }
