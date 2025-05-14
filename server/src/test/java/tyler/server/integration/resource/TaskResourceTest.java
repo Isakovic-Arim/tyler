@@ -19,9 +19,11 @@ import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
 import tyler.server.dto.task.TaskRequestDTO;
+import tyler.server.dto.auth.AuthRequest;
 import tyler.server.repository.PriorityRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.*;
 import java.util.*;
@@ -37,12 +39,14 @@ import static tyler.server.Constants.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TaskResourceTest {
     private static final String TASKS_ENDPOINT = "/tasks";
+    private static final String AUTH_ENDPOINT = "/auth";
     private static final String DEFAULT_DESCRIPTION = "Test description";
     private static final byte DEFAULT_XP = 3;
     private static final Priority DEFAULT_PRIORITY = Priority.builder()
             .name("HIGH")
             .xp(DEFAULT_XP)
             .build();
+    private static final String TEST_PASSWORD = "testPassword123";
 
     @Container
     @ServiceConnection
@@ -54,18 +58,59 @@ public class TaskResourceTest {
     private PriorityRepository priorityRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private User testUser;
+    private String authToken;
 
     @BeforeAll
     void setUp(@Value("${local.server.port}") int port) {
         RestAssured.port = port;
         RestAssured.registerParser("text/plain", Parser.TEXT);
+        
+        // Clear repositories
+        taskRepository.deleteAll();
         priorityRepository.deleteAll();
+        userRepository.deleteAll();
+        
+        // Create default priority
         priorityRepository.save(DEFAULT_PRIORITY);
+        
+        // Create test user
+        testUser = User.builder()
+            .username("testuser")
+            .passwordHash(passwordEncoder.encode(TEST_PASSWORD))
+            .currentXp(0)
+            .dailyXpQuota(10)
+            .currentStreak(0)
+            .daysOffPerWeek((byte) 2)
+            .offDays(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
+            .build();
+        userRepository.save(testUser);
+
+        // Get authentication token
+        authToken = getAuthToken();
+    }
+
+    private String getAuthToken() {
+        AuthRequest authRequest = new AuthRequest("testuser", TEST_PASSWORD);
+        return given()
+            .contentType(ContentType.JSON)
+            .body(authRequest)
+            .when()
+            .post(AUTH_ENDPOINT + "/login")
+            .then()
+            .statusCode(200)
+            .extract()
+            .path("token");
     }
 
     // region HELPERS
     private RequestSpecification givenJson() {
-        return given().contentType(ContentType.JSON);
+        return given()
+            .contentType(ContentType.JSON)
+            .header("Authorization", "Bearer " + authToken);
     }
 
     private Task createTestTask(String name, LocalDate deadline) {
@@ -77,11 +122,14 @@ public class TaskResourceTest {
                 .done(false)
                 .priority(DEFAULT_PRIORITY)
                 .parent(null)
+                .user(testUser)
                 .build();
     }
 
     private Task saveTask(String name, int daysFromNow) {
-        return taskRepository.save(createTestTask(name, LocalDate.now().plusDays(daysFromNow)));
+        Task task = createTestTask(name, LocalDate.now().plusDays(daysFromNow));
+        testUser.addTask(task);
+        return taskRepository.save(task);
     }
 
     private TaskRequestDTO buildTaskRequest(Long parentId, String name, String description, LocalDate dueDate, LocalDate deadline, Long priorityId) {
@@ -104,7 +152,11 @@ public class TaskResourceTest {
     }
 
     private void verifyTask(Long id, String name, String description, Byte xp, Boolean done) {
-        var request = given().when().get(TASKS_ENDPOINT + "/{id}", id).then().statusCode(200);
+        var request = givenJson()
+            .when()
+            .get(TASKS_ENDPOINT + "/{id}", id)
+            .then()
+            .statusCode(200);
         if (name != null) request.body("name", equalTo(name));
         if (description != null) request.body("description", equalTo(description));
         if (xp != null) request.body("xp", equalTo(xp.intValue()));
@@ -112,14 +164,18 @@ public class TaskResourceTest {
     }
 
     private User createTestUser(int dailyXpQuota) {
+        String username = "user" + UUID.randomUUID().toString().substring(0, 8);
         User user = User.builder()
+                .username(username)
+                .passwordHash(passwordEncoder.encode(TEST_PASSWORD))
                 .currentXp(0)
                 .dailyXpQuota(dailyXpQuota)
                 .currentStreak(0)
                 .lastAchievedDate(null)
+                .daysOffPerWeek((byte) 2)
+                .offDays(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
                 .build();
-        userRepository.save(user);
-        return user;
+        return userRepository.save(user);
     }
 
     private Task createTaskWithUser(String name, User user, Priority priority) {
@@ -130,10 +186,10 @@ public class TaskResourceTest {
                 .deadline(LocalDate.now().plusDays(1))
                 .done(false)
                 .priority(priority)
+                .user(user)
                 .build();
         user.addTask(task);
-        taskRepository.save(task);
-        return task;
+        return taskRepository.save(task);
     }
     // endregion
 
@@ -267,7 +323,7 @@ public class TaskResourceTest {
         TaskRequestDTO child = buildTaskRequest(parent.getId(), "Valid Child Task", DEFAULT_DESCRIPTION, LocalDate.now().plusDays(5), LocalDate.now().plusDays(8), 1L);
         postTaskAndReturnLocation(child);
 
-        given().when().get(TASKS_ENDPOINT + "/{id}", parent.getId()).then().statusCode(200)
+        givenJson().when().get(TASKS_ENDPOINT + "/{id}", parent.getId()).then().statusCode(200)
                 .body("name", equalTo("Parent Task"))
                 .body("subtasks", equalTo(1));
     }
@@ -282,7 +338,7 @@ public class TaskResourceTest {
                 createTestTask("Task 2", LocalDate.now().plusDays(2))
         ));
 
-        given().when().get(TASKS_ENDPOINT).then().statusCode(200)
+        givenJson().when().get(TASKS_ENDPOINT).then().statusCode(200)
                 .body("$", hasSize(2))
                 .body("name", hasItems("Task 1", "Task 2"));
     }
@@ -290,13 +346,13 @@ public class TaskResourceTest {
     @Test
     void getTaskById_validId_returnsTask() {
         Task task = saveTask("Get By Id Task", 3);
-        given().when().get(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(200);
+        givenJson().when().get(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(200);
         verifyTask(task.getId(), "Get By Id Task", DEFAULT_DESCRIPTION, DEFAULT_XP, false);
     }
 
     @Test
     void getTaskById_nonExistentId_returnsNotFound() {
-        given().when().get(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
+        givenJson().when().get(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
     }
     // endregion
 
@@ -399,13 +455,13 @@ public class TaskResourceTest {
     @Test
     void patchTaskDone_validId_marksTaskAsDone() {
         Task task = saveTask("Task To Complete", 1);
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
         verifyTask(task.getId(), null, null, null, true);
     }
 
     @Test
     void patchTaskDone_invalidId_returnsNotFound() {
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", 999).then().statusCode(404);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", 999).then().statusCode(404);
     }
 
     @Test
@@ -415,7 +471,7 @@ public class TaskResourceTest {
         parent.addSubtask(child);
         taskRepository.save(parent);
 
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", parent.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", parent.getId()).then().statusCode(200);
 
         verifyTask(child.getId(), null, null, null, true);
     }
@@ -428,7 +484,7 @@ public class TaskResourceTest {
         Task task = createTaskWithUser("Low XP Task", user, lowPriority);
 
         // When
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
 
         // Then
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -445,7 +501,7 @@ public class TaskResourceTest {
         Task task = createTaskWithUser("High XP Task", user, highPriority);
 
         // When
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
 
         // Then
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -464,9 +520,9 @@ public class TaskResourceTest {
         Task task3 = createTaskWithUser("Task 3", user, priority);
 
         // When
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task3.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task3.getId()).then().statusCode(200);
 
         // Then
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -484,7 +540,7 @@ public class TaskResourceTest {
         Task task2 = createTaskWithUser("Day 2 Task", user, priority);
 
         // When - Complete task on first day
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
 
         // Then
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -494,7 +550,7 @@ public class TaskResourceTest {
         userRepository.save(updatedUser);
 
         // When - Complete task on second day
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
 
         // Then
         updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -512,14 +568,14 @@ public class TaskResourceTest {
         Task task2 = createTaskWithUser("Day 3 Task", user, priority);
 
         // When - Complete task on first day
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task1.getId()).then().statusCode(200);
 
         // Simulate skipping a day
         user.setLastAchievedDate(LocalDate.now().minusDays(2));
         userRepository.save(user);
 
         // Complete task on third day
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task2.getId()).then().statusCode(200);
 
         // Then
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -542,7 +598,7 @@ public class TaskResourceTest {
         taskRepository.save(parentTask);
 
         // When
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", parentTask.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", parentTask.getId()).then().statusCode(200);
 
         // Then
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -564,7 +620,7 @@ public class TaskResourceTest {
         Task task = createTaskWithUser("Task on Day Off", user, priority);
 
         // When
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
 
         // Then
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -591,7 +647,7 @@ public class TaskResourceTest {
         Task task = createTaskWithUser("Today's Task", user, priority);
 
         // When - Complete today's task
-        given().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+        givenJson().when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
 
         // Then - Streak should be preserved and incremented
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
@@ -605,12 +661,12 @@ public class TaskResourceTest {
     @Test
     void deleteTask_validId_removesTask() {
         Task task = saveTask("Task To Delete", 1);
-        given().when().delete(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(204);
+        givenJson().when().delete(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(204);
     }
 
     @Test
     void deleteTask_invalidId_returnsNotFound() {
-        given().when().delete(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
+        givenJson().when().delete(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
     }
 
     @Test
@@ -620,8 +676,8 @@ public class TaskResourceTest {
         parent.addSubtask(child);
         taskRepository.save(parent);
 
-        given().when().delete(TASKS_ENDPOINT + "/{id}", parent.getId()).then().statusCode(204);
-        given().when().get(TASKS_ENDPOINT + "/{id}", child.getId()).then().statusCode(404);
+        givenJson().when().delete(TASKS_ENDPOINT + "/{id}", parent.getId()).then().statusCode(204);
+        givenJson().when().get(TASKS_ENDPOINT + "/{id}", child.getId()).then().statusCode(404);
     }
     // endregion
 }
