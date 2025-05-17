@@ -2,15 +2,28 @@ package tyler.server.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tyler.server.dto.task.TaskRequestDTO;
 import tyler.server.dto.task.TaskResponseDTO;
+import tyler.server.entity.User;
 import tyler.server.service.TaskService;
 
+import java.lang.annotation.Target;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.net.URI;
 import java.util.List;
+
+@Target({ElementType.PARAMETER, ElementType.TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@AuthenticationPrincipal(expression = "@userService.getUserFromJwt(#this)")
+@interface CurrentUser {}
 
 @RestController
 @RequestMapping("/tasks")
@@ -33,8 +46,8 @@ public class TaskResource {
     }
 
     @PostMapping
-    public ResponseEntity<Void> createTask(@Valid @RequestBody TaskRequestDTO task) {
-        Long id = taskService.saveTask(task);
+    public ResponseEntity<Void> createTask(@CurrentUser User user, @Valid @RequestBody TaskRequestDTO task) {
+        Long id = taskService.saveTask(user, task);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()

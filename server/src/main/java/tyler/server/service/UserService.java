@@ -4,6 +4,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import tyler.server.entity.User;
 import tyler.server.repository.UserRepository;
@@ -27,5 +28,15 @@ public class UserService implements UserDetailsService {
                 user.getPasswordHash(),
                 List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );
+    }
+
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
+
+    public User getUserFromJwt(Jwt jwt) {
+        String username = jwt.getSubject();
+        return findByUsername(username);
     }
 }

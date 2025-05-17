@@ -3,10 +3,19 @@ package tyler.server.service;
 import jakarta.transaction.Transactional;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.acls.domain.BasePermission;
+import org.springframework.security.acls.domain.ObjectIdentityImpl;
+import org.springframework.security.acls.domain.PrincipalSid;
+import org.springframework.security.acls.jdbc.JdbcMutableAclService;
+import org.springframework.security.acls.model.MutableAcl;
+import org.springframework.security.acls.model.ObjectIdentity;
+import org.springframework.security.acls.model.Sid;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import tyler.server.dto.task.TaskRequestDTO;
 import tyler.server.dto.task.TaskResponseDTO;
+import tyler.server.entity.User;
 import tyler.server.mapper.TaskMapper;
 import tyler.server.exception.ResourceNotFoundException;
 import tyler.server.repository.TaskRepository;
@@ -22,26 +31,37 @@ public class TaskService {
     private final TaskMapper taskMapper;
     private final TaskValidator validator;
     private final ProgressService progressService;
+    private final JdbcMutableAclService aclService;
 
-    public TaskService(TaskRepository taskRepository, TaskMapper taskMapper, TaskValidator validator, ProgressService progressService) {
+    public TaskService(
+            TaskRepository taskRepository,
+            TaskMapper taskMapper,
+            TaskValidator validator,
+            ProgressService progressService,
+            JdbcMutableAclService aclService) {
         this.taskRepository = taskRepository;
         this.taskMapper = taskMapper;
         this.validator = validator;
         this.progressService = progressService;
+        this.aclService = aclService;
     }
 
     public List<TaskResponseDTO> getAllTasks() {
-        return taskRepository.findAllTasks();
+        return taskRepository.findAllTasks().stream()
+                .map(taskMapper::toResponseDto).toList();
     }
 
+    @PostAuthorize("hasPermission(#id, 'tyler.server.entity.Task', 'read')")
     public TaskResponseDTO getTaskById(Long id) {
-        return taskRepository.findTaskById(id)
-                .orElseThrow(() -> taskNotFound(id));
+        Task task = findTaskById(id);
+        return taskMapper.toResponseDto(task);
     }
 
     @Transactional
-    public Long saveTask(@Valid TaskRequestDTO request) {
+//    @PreAuthorize("hasPermission(#user, 'tyler.server.entity.Task', 'write')")
+    public Long saveTask(User user, @Valid TaskRequestDTO request) {
         Task task = taskMapper.RequestDtoToTask(request);
+        user.addTask(task);
 
         if (request.parentId() != null) {
             linkToParent(task, request.parentId());
@@ -49,9 +69,21 @@ public class TaskService {
 
         validator.validate(task);
         task = taskRepository.save(task);
+
+        ObjectIdentity oid = new ObjectIdentityImpl(Task.class, task.getId());
+        MutableAcl acl = aclService.createAcl(oid);
+
+        Sid userSid = new PrincipalSid(user.getUsername());
+
+        acl.insertAce(0, BasePermission.READ, userSid, true);
+        acl.insertAce(1, BasePermission.WRITE, userSid, true);
+        acl.insertAce(2, BasePermission.DELETE, userSid, true);
+
+        aclService.updateAcl(acl);
         return task.getId();
     }
 
+    @PostAuthorize("hasPermission(#id, 'tyler.server.entity.Task', 'write')")
     @Transactional
     public void updateTask(Long id, @Valid TaskRequestDTO request) {
         if (!taskRepository.existsById(id)) {
@@ -69,18 +101,21 @@ public class TaskService {
         taskRepository.save(task);
     }
 
+    @PostAuthorize("hasPermission(#id, 'tyler.server.entity.Task', 'write')")
     @Transactional
     public void markTaskAsDone(Long id) {
         Task task = findTaskById(id);
+
         task.setDone(true);
         progressService.handleTaskCompletion(task);
-        
+
         task.getSubtasks().forEach(subtask -> {
             subtask.setDone(true);
             progressService.handleTaskCompletion(subtask);
         });
     }
 
+    @PostAuthorize("hasPermission(#id, 'tyler.server.entity.Task', 'delete')")
     @Transactional
     public void deleteTask(Long id) {
         Task task = findTaskById(id);
