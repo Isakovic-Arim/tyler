@@ -58,7 +58,6 @@ public class TaskService {
     }
 
     @Transactional
-//    @PreAuthorize("hasPermission(#user, 'tyler.server.entity.Task', 'write')")
     public Long saveTask(User user, @Valid TaskRequestDTO request) {
         Task task = taskMapper.RequestDtoToTask(request);
         user.addTask(task);

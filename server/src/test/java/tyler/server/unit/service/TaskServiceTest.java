@@ -105,7 +105,7 @@ class TaskServiceTest {
     void getTaskById_ShouldHandleFoundAndNotFoundCases() {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
         when(taskMapper.toResponseDto(any(Task.class))).thenReturn(responseDTO);
-        
+
         assertThat(taskService.getTaskById(1L).name()).isEqualTo("Valid Task");
 
         when(taskRepository.findById(999L)).thenReturn(Optional.empty());
@@ -165,6 +165,58 @@ class TaskServiceTest {
     }
 
     @Test
+    void saveTask_ShouldFailIfDueDateAfterDeadline() {
+        var invalidRequest = new TaskRequestDTO(null, "Invalid", "desc",
+                LocalDate.now().plusDays(5), LocalDate.now().plusDays(3), 1L);
+        var baseTask = Task.builder()
+                .id(1L)
+                .name("Invalid")
+                .description("desc")
+                .dueDate(LocalDate.now().plusDays(5))
+                .deadline(LocalDate.now().plusDays(3))
+                .priority(priority)
+                .done(false)
+                .user(testUser)
+                .build();
+
+        when(taskMapper.RequestDtoToTask(invalidRequest))
+                .thenReturn(baseTask.toBuilder()
+                        .dueDate(LocalDate.now().plusDays(5))
+                        .deadline(LocalDate.now().plusDays(3))
+                        .build());
+        doThrow(new ConstraintViolationException("Due date cannot be after deadline", null))
+                .when(taskValidator).validate(baseTask);
+
+        assertThatThrownBy(() -> taskService.saveTask(testUser, invalidRequest))
+                .isInstanceOf(ConstraintViolationException.class)
+                .hasMessageContaining("Due date cannot be after deadline");
+    }
+
+    @Test
+    void saveTask_ShouldFailIfSubtaskXpExceedsParent() {
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
+        var childReq = new TaskRequestDTO(1L, "Subtask", "desc",
+                LocalDate.now(), LocalDate.now().plusDays(1), 1L);
+        when(taskMapper.RequestDtoToTask(childReq))
+                .thenReturn(baseTask.toBuilder()
+                        .priority(Priority.builder().xp((byte) 15).build())
+                        .build());
+
+        var parent = baseTask;
+        var child = baseTask.toBuilder().id(2L).priority(
+                Priority.builder().xp((byte) 12).build()).parent(parent).build();
+
+        when(taskMapper.RequestDtoToTask(childReq)).thenReturn(child);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
+        doThrow(new ConstraintViolationException("Subtasks' XP cannot exceed parent", null))
+                .when(taskValidator).validate(child);
+
+        assertThatThrownBy(() -> taskService.saveTask(testUser, childReq))
+                .isInstanceOf(ConstraintViolationException.class)
+                .hasMessageContaining("Subtasks' XP cannot exceed parent");
+    }
+
+    @Test
     @WithMockUser(username = "testuser")
     void updateTask_ShouldUpdateIfExists_ElseThrow() {
         var updated = baseTask;
@@ -176,7 +228,7 @@ class TaskServiceTest {
 
         when(taskRepository.existsById(999L)).thenReturn(false);
         assertThatThrownBy(() -> taskService.updateTask(999L, defaultRequestDTO))
-            .isInstanceOf(ResourceNotFoundException.class);
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -184,9 +236,9 @@ class TaskServiceTest {
     void markTaskAsDone_ShouldHandleValidAndMissingCases() {
         var task = baseTask.toBuilder().done(false).build();
         when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
-        
+
         taskService.markTaskAsDone(1L);
-        
+
         assertThat(task.isDone()).isTrue();
         verify(progressService).handleTaskCompletion(task);
 
@@ -202,7 +254,7 @@ class TaskServiceTest {
         parent.getSubtasks().add(sub);
 
         when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
-        
+
         taskService.markTaskAsDone(1L);
 
         assertThat(parent.isDone()).isTrue();
@@ -214,9 +266,9 @@ class TaskServiceTest {
     @WithMockUser(username = "testuser")
     void deleteTask_ShouldDeleteIfExists_ElseThrow() {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
-        
+
         taskService.deleteTask(1L);
-        
+
         verify(taskRepository).deleteById(1L);
 
         when(taskRepository.findById(999L)).thenReturn(Optional.empty());
@@ -244,7 +296,7 @@ class TaskServiceTest {
         parent.getSubtasks().add(sub);
 
         when(taskRepository.findById(2L)).thenReturn(Optional.of(sub));
-        
+
         taskService.deleteTask(2L);
 
         verify(taskRepository).deleteById(2L);

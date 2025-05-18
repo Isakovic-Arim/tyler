@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.oauth2.jwt.Jwt;
 import tyler.server.entity.User;
 import tyler.server.repository.UserRepository;
 import tyler.server.service.UserService;
@@ -75,6 +76,39 @@ class UserServiceTest {
     @Test
     void loadUserByUsername_ShouldHandleNullUsername() {
         assertThatThrownBy(() -> userService.loadUserByUsername(null))
+            .isInstanceOf(UsernameNotFoundException.class)
+            .hasMessage("User not found");
+
+        verify(userRepository).findByUsername(null);
+    }
+
+    @Test
+    void findByUsername_ShouldReturnUser_WhenUserExists() {
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+
+        User result = userService.findByUsername("testuser");
+
+        assertThat(result).isEqualTo(testUser);
+        verify(userRepository).findByUsername("testuser");
+    }
+
+    @Test
+    void findByUsername_ShouldThrowException_WhenUserDoesNotExist() {
+        when(userRepository.findByUsername("wrong")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.findByUsername("wrong"))
+            .isInstanceOf(UsernameNotFoundException.class)
+            .hasMessage("User not found");
+
+        verify(userRepository).findByUsername("wrong");
+    }
+
+    @Test
+    void getUserFromJwt_ShouldThrowException_WhenSubjectIsNull() {
+        Jwt mockJwt = mock(Jwt.class);
+        when(mockJwt.getSubject()).thenReturn(null);
+
+        assertThatThrownBy(() -> userService.getUserFromJwt(mockJwt))
             .isInstanceOf(UsernameNotFoundException.class)
             .hasMessage("User not found");
 
