@@ -274,6 +274,57 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
 
     @Test
     @WithMockUser(username = "user")
+    void postTask_allSubtasksExceedParent_returnsBadRequest() {
+        Priority parentPriority = priorityRepository.save(
+            Priority.builder().name("PARENT").xp((byte) 10).build()
+        );
+
+        Priority childPriority1 = priorityRepository.save(
+            Priority.builder().name("CHILD1").xp((byte) 6).build()
+        );
+        Priority childPriority2 = priorityRepository.save(
+            Priority.builder().name("CHILD2").xp((byte) 7).build()
+        );
+
+        Task parent = Task.builder()
+                .name("Parent Task")
+                .deadline(LocalDate.now().plusDays(10))
+                .done(false)
+                .priority(parentPriority)
+                .user(user)
+                .build();
+        user.addTask(parent);
+        parent = taskRepository.save(parent);
+        createAclForTask(parent);
+
+        TaskRequestDTO child1 = new TaskRequestDTO(
+                parent.getId(),
+                "Child Task 1",
+                null,
+                null,
+                LocalDate.now().plusDays(5),
+                childPriority1.getId()
+        );
+
+        TaskRequestDTO child2 = new TaskRequestDTO(
+                parent.getId(),
+                "Child Task 2",
+                null,
+                null,
+                LocalDate.now().plusDays(7),
+                childPriority2.getId()
+        );
+
+        givenToken(token).body(child1).when().post(TASKS_ENDPOINT).then()
+                .statusCode(201);
+
+        givenToken(token).body(child2).when().post(TASKS_ENDPOINT).then()
+                .statusCode(422)
+                .body(containsString("cannot exceed parent"));
+    }
+
+    @Test
+    @WithMockUser(username = "user")
     void postTask_validParentIdAndData_returnsCreated() {
         Task parent = Task.builder()
                 .name("Parent Task")
