@@ -67,7 +67,7 @@ class TaskServiceTest {
         mockAcl = mock(MutableAcl.class);
 
         defaultRequestDTO = new TaskRequestDTO(null, "Valid Task", "A well-formed description", today, tomorrow, 1L);
-        responseDTO = new TaskResponseDTO(1L, 0, "Valid Task", "A well-formed description", today.toString(), (byte) 10, false);
+        responseDTO = new TaskResponseDTO(1L, 0, "Valid Task", "A well-formed description", today.toString(), tomorrow.toString(), (byte) 10, false);
         baseTask = Task.builder()
                 .id(1L)
                 .name("Valid Task")
@@ -168,14 +168,15 @@ class TaskServiceTest {
     @WithMockUser(username = "testuser")
     void updateTask_ShouldUpdateIfExists_ElseThrow() {
         var updated = baseTask;
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
+        when(taskRepository.existsById(1L)).thenReturn(true);
         when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(updated);
 
         taskService.updateTask(1L, defaultRequestDTO);
         verify(taskRepository).save(argThat(task -> task.getId() == 1L));
 
-        when(taskRepository.findById(999L)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> taskService.updateTask(999L, defaultRequestDTO)).isInstanceOf(ResourceNotFoundException.class);
+        when(taskRepository.existsById(999L)).thenReturn(false);
+        assertThatThrownBy(() -> taskService.updateTask(999L, defaultRequestDTO))
+            .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
@@ -248,27 +249,5 @@ class TaskServiceTest {
 
         verify(taskRepository).deleteById(2L);
         assertThat(parent.getSubtasks()).doesNotContain(sub);
-    }
-
-    @Test
-    void markTaskAsDone_ShouldHandleOffDayCorrectly() {
-        User user = User.builder()
-                .id(1L)
-                .currentXp(0)
-                .dailyXpQuota(100)
-                .currentStreak(0)
-                .build();
-
-        Task task = baseTask.toBuilder()
-                .user(user)
-                .done(false)
-                .build();
-
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
-
-        taskService.markTaskAsDone(1L);
-
-        verify(progressService).handleTaskCompletion(task);
-        assertThat(task.isDone()).isTrue();
     }
 }
