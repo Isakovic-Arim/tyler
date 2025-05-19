@@ -22,13 +22,16 @@ import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
 import tyler.server.repository.PriorityRepository;
+import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.Set;
 
+import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static tyler.server.Constants.MAX_TASK_DESCRIPTION_LENGTH;
@@ -39,6 +42,8 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
     @Autowired
     private PriorityRepository priorityRepository;
     @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
+    @Autowired
     private UserRepository userRepository;
     @Autowired
     private TaskRepository taskRepository;
@@ -46,14 +51,14 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
     private JdbcMutableAclService aclService;
     @Autowired
     private PlatformTransactionManager transactionManager;
-    
+
     private final Priority priority = Priority.builder()
             .name("MEDIUM")
             .xp((byte) 3)
             .build();
-    
+
     private User user;
-    private String token;
+    private Map<String, String> cookies;
 
     @BeforeAll
     void setup() {
@@ -70,7 +75,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
                 .build();
         userRepository.save(user);
 
-        token = getAuthToken(user.getUsername(), "test");
+        cookies = getAuthCookies(user.getUsername(), "test");
     }
 
     @AfterEach
@@ -82,6 +87,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
 
     @AfterAll
     void cleanUp() {
+        refreshTokenRepository.deleteAll();
         userRepository.delete(user);
         priorityRepository.delete(priority);
     }
@@ -108,14 +114,14 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
     @WithMockUser(username = "user")
     void postTask_validTask_returnsCreated() {
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Task", null, null, LocalDate.now().plusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(201);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(201);
     }
 
     @Test
     @WithMockUser(username = "user")
     void postTask_emptyName_returnsBadRequest() {
         TaskRequestDTO task = new TaskRequestDTO(null, "", null, null, LocalDate.now().plusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
     }
 
     @Test
@@ -123,7 +129,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
     void postTask_tooLongName_returnsBadRequest() {
         String tooLongName = "a".repeat(MAX_TASK_NAME_LENGTH + 1);
         TaskRequestDTO task = new TaskRequestDTO(null, tooLongName, null, null, LocalDate.now().plusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
     }
 
     @Test
@@ -131,49 +137,49 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
     void postTask_tooLongDescription_returnsBadRequest() {
         String tooLongDescription = "a".repeat(MAX_TASK_DESCRIPTION_LENGTH + 1);
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Name", tooLongDescription, null, LocalDate.now().plusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
     }
 
     @Test
     @WithMockUser(username = "user")
     void postTask_pastDeadline_returnsBadRequest() {
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Name", null, null, LocalDate.now().minusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
     }
 
     @Test
     @WithMockUser(username = "user")
     void postTask_nullDeadline_returnsBadRequest() {
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Name", null, null, null, priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
     }
 
     @Test
     @WithMockUser(username = "user")
     void postTask_pastDueDate_returnsBadRequest() {
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Name", null, LocalDate.now().minusDays(1), LocalDate.now().plusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400);
     }
 
     @Test
     @WithMockUser(username = "user")
     void postTask_nullDueDate_returnsCreated() {
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Task", null, null, LocalDate.now().plusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(201);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(201);
     }
 
     @Test
     @WithMockUser(username = "user")
     void postTask_validDueDate_returnsCreated() {
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Task", null, LocalDate.now().plusDays(1), LocalDate.now().plusDays(7), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(201);
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(201);
     }
 
     @Test
     @WithMockUser(username = "user")
     void postTask_invalidPriorityId_returnsBadRequest() {
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Task", null, null, LocalDate.now().plusDays(1), 999L);
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400)
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400)
                 .body(containsString("Priority with ID 999 does not exist"));
     }
 
@@ -181,7 +187,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
     @WithMockUser(username = "user")
     void postTask_invalidParentId_returnsBadRequest() {
         TaskRequestDTO task = new TaskRequestDTO(999L, "Valid Task", null, null, LocalDate.now().plusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400)
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400)
                 .body(containsString("Parent Task with ID 999 does not exist"));
     }
 
@@ -209,7 +215,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
                 priority.getId()
         );
 
-        givenToken(token).body(child).when().post(TASKS_ENDPOINT).then().statusCode(400)
+        givenCookies(cookies).body(child).when().post(TASKS_ENDPOINT).then().statusCode(400)
                 .body("detail", containsString("cannot be after parent task's deadline"));
     }
 
@@ -237,7 +243,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
                 priority.getId()
         );
 
-        givenToken(token).body(child).when().post(TASKS_ENDPOINT).then().statusCode(400)
+        givenCookies(cookies).body(child).when().post(TASKS_ENDPOINT).then().statusCode(400)
                 .body(containsString("cannot be after parent task's deadline"));
     }
 
@@ -268,7 +274,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
                 childPriority.getId()
         );
 
-        givenToken(token).body(child).when().post(TASKS_ENDPOINT).then().statusCode(422)
+        givenCookies(cookies).body(child).when().post(TASKS_ENDPOINT).then().statusCode(422)
                 .body(containsString("cannot exceed parent"));
     }
 
@@ -276,14 +282,14 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
     @WithMockUser(username = "user")
     void postTask_allSubtasksExceedParent_returnsBadRequest() {
         Priority parentPriority = priorityRepository.save(
-            Priority.builder().name("PARENT").xp((byte) 10).build()
+                Priority.builder().name("PARENT").xp((byte) 10).build()
         );
 
         Priority childPriority1 = priorityRepository.save(
-            Priority.builder().name("CHILD1").xp((byte) 6).build()
+                Priority.builder().name("CHILD1").xp((byte) 6).build()
         );
         Priority childPriority2 = priorityRepository.save(
-            Priority.builder().name("CHILD2").xp((byte) 7).build()
+                Priority.builder().name("CHILD2").xp((byte) 7).build()
         );
 
         Task parent = Task.builder()
@@ -315,10 +321,10 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
                 childPriority2.getId()
         );
 
-        givenToken(token).body(child1).when().post(TASKS_ENDPOINT).then()
+        givenCookies(cookies).body(child1).when().post(TASKS_ENDPOINT).then()
                 .statusCode(201);
 
-        givenToken(token).body(child2).when().post(TASKS_ENDPOINT).then()
+        givenCookies(cookies).body(child2).when().post(TASKS_ENDPOINT).then()
                 .statusCode(422)
                 .body(containsString("cannot exceed parent"));
     }
@@ -347,9 +353,9 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
                 priority.getId()
         );
 
-        givenToken(token).body(child).when().post(TASKS_ENDPOINT).then().statusCode(201);
+        givenCookies(cookies).body(child).when().post(TASKS_ENDPOINT).then().statusCode(201);
 
-        givenToken(token).when().get(TASKS_ENDPOINT + "/{id}", parent.getId()).then().statusCode(200)
+        givenCookies(cookies).when().get(TASKS_ENDPOINT + "/{id}", parent.getId()).then().statusCode(200)
                 .body("name", equalTo("Parent Task"))
                 .body("subtasks", equalTo(1));
     }

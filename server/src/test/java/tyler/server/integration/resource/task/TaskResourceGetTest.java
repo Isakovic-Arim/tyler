@@ -22,12 +22,14 @@ import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
 import tyler.server.repository.PriorityRepository;
+import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.*;
@@ -36,6 +38,8 @@ class TaskResourceGetTest extends BaseTaskResourceTest {
 
     @Autowired
     private PriorityRepository priorityRepository;
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
     @Autowired
     private UserRepository userRepository;
     @Autowired
@@ -52,7 +56,7 @@ class TaskResourceGetTest extends BaseTaskResourceTest {
             .build();
 
     private User user;
-    private String token;
+    private Map<String, String> cookies;
 
     @BeforeAll
     void setUp() {
@@ -69,7 +73,7 @@ class TaskResourceGetTest extends BaseTaskResourceTest {
                 .build();
         userRepository.save(user);
 
-        token = getAuthToken(user.getUsername(), "test");
+        cookies = getAuthCookies(user.getUsername(), "test");
     }
 
     @AfterEach
@@ -81,6 +85,7 @@ class TaskResourceGetTest extends BaseTaskResourceTest {
 
     @AfterAll
     void cleanUp() {
+        refreshTokenRepository.deleteAll();
         userRepository.delete(user);
         priorityRepository.delete(priority);
     }
@@ -100,16 +105,16 @@ class TaskResourceGetTest extends BaseTaskResourceTest {
 
         user.addTask(task);
         user.addTask(task2);
-
-        taskRepository.saveAll(List.of(
-                task,
-                task2
-        ));
+        taskRepository.saveAll(List.of(task, task2));
 
         createAcl(task, user);
         createAcl(task2, user);
 
-        givenToken(token).when().get(TASKS_ENDPOINT).then().statusCode(200)
+        givenCookies(cookies)
+                .when()
+                .get(TASKS_ENDPOINT)
+                .then()
+                .statusCode(200)
                 .body("$", hasSize(2))
                 .body("name", hasItems("Task 1", "Task 2"));
     }
@@ -130,7 +135,11 @@ class TaskResourceGetTest extends BaseTaskResourceTest {
         task = taskRepository.save(task);
         createAcl(task, user);
 
-        var result = givenToken(token).when().get(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(200);
+        var result = givenCookies(cookies)
+                .when()
+                .get(TASKS_ENDPOINT + "/{id}", task.getId())
+                .then()
+                .statusCode(200);
 
         result.body("id", equalTo(task.getId().intValue()))
                 .body("name", equalTo(task.getName()))
@@ -142,10 +151,13 @@ class TaskResourceGetTest extends BaseTaskResourceTest {
     @Test
     @WithMockUser(username = "user")
     void getTaskById_nonExistentId_returnsNotFound() {
-        givenToken(token).when().get(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
+        givenCookies(cookies)
+                .when()
+                .get(TASKS_ENDPOINT + "/{id}", 999)
+                .then()
+                .statusCode(404);
     }
 
-    // region HELPERS
     private void createAcl(Task task, User user) {
         TransactionTemplate tt = new TransactionTemplate(transactionManager);
         tt.execute(new TransactionCallbackWithoutResult() {
@@ -163,5 +175,4 @@ class TaskResourceGetTest extends BaseTaskResourceTest {
             }
         });
     }
-    // endregion
 }

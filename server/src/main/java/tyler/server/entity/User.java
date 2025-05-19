@@ -80,14 +80,28 @@ public class User implements UserDetails {
     @Builder.Default
     private Set<DayOfWeek> offDays = Set.of();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<RefreshToken> refreshTokens = new ArrayList<>();
+
     public void addTask(Task task) {
-        tasks.add(task);
         task.setUser(this);
+        tasks.add(task);
     }
 
     public void removeTask(Task task) {
-        tasks.remove(task);
         task.setUser(null);
+        tasks.remove(task);
+    }
+
+    public void addRefreshToken(RefreshToken refreshToken) {
+        refreshToken.setUser(this);
+        refreshTokens.add(refreshToken);
+    }
+
+    public void removeRefreshToken(RefreshToken refreshToken) {
+        refreshToken.setUser(null);
+        refreshTokens.remove(refreshToken);
     }
 
     @Override

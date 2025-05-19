@@ -23,11 +23,13 @@ import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
 import tyler.server.repository.PriorityRepository;
+import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.containsString;
@@ -39,6 +41,8 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     private PriorityRepository priorityRepository;
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
     @Autowired
     private TaskRepository taskRepository;
     
@@ -53,7 +57,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
             .build();
 
     private User user;
-    private String token;
+    private Map<String, String> cookies;
     
     @BeforeAll
     void setUp() {
@@ -70,7 +74,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
                 .build();
         userRepository.save(user);
 
-        token = getAuthToken(user.getUsername(), "test");
+        cookies = getAuthCookies(user.getUsername(), "test");
     }
     
     @AfterEach
@@ -82,6 +86,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     
     @AfterAll
     void cleanUp() {
+        refreshTokenRepository.deleteAll();
         userRepository.delete(user);
         priorityRepository.delete(priority);
     }
@@ -126,9 +131,9 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         TaskRequestDTO update = new TaskRequestDTO(null, "Updated Task", "Updated description", null,
                 LocalDate.now().plusDays(5), updatedPriority.getId());
 
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(200);
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(200);
 
-        givenToken(token).when().get(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(200)
+        givenCookies(cookies).when().get(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(200)
                 .body("name", equalTo("Updated Task"))
                 .body("description", equalTo("Updated description"))
                 .body("xp", equalTo(Conversions.intValue(5)))
@@ -141,7 +146,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     void putTask_invalidId_returnsNotFound() {
         TaskRequestDTO update = new TaskRequestDTO(null, "Updated Task", "Updated description",
                 null, LocalDate.now().plusDays(5), priority.getId());
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
     }
 
     @Test
@@ -149,7 +154,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     void putTask_invalidParentId_returnsBadRequest() {
         Task task = Task.builder()
                 .name("Original Task")
-                
+
                 .deadline(LocalDate.now().plusDays(1))
                 .done(false)
                 .priority(priority)
@@ -163,7 +168,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         TaskRequestDTO update = new TaskRequestDTO(999L, "Updated Task", "Updated description",
                 null, LocalDate.now().plusDays(5), priority.getId());
 
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
                 .then().statusCode(400)
                 .body("detail", containsString("Parent Task with ID 999 does not exist"));
     }
@@ -173,7 +178,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     void putTask_invalidPriorityId_returnsBadRequest() {
         Task task = Task.builder()
                 .name("Original Task")
-                
+
                 .deadline(LocalDate.now().plusDays(1))
                 .done(false)
                 .priority(priority)
@@ -187,7 +192,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         TaskRequestDTO update = new TaskRequestDTO(null, "Updated Task", "Updated description",
                 null, LocalDate.now().plusDays(5), 999L);
 
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
                 .then().statusCode(400)
                 .body(containsString("Priority with ID 999 does not exist"));
     }
@@ -197,7 +202,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     void putTask_invalidDueDate_returnsBadRequest() {
         Task task = Task.builder()
                 .name("Original Task")
-                
+
                 .deadline(LocalDate.now().plusDays(1))
                 .done(false)
                 .priority(priority)
@@ -211,7 +216,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         TaskRequestDTO update = new TaskRequestDTO(null, "Updated Task", "Updated description",
                 LocalDate.now().minusDays(1), LocalDate.now().plusDays(5), priority.getId());
 
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
                 .then().statusCode(400)
                 .body(containsString("Due date must be in the future or present"));
     }
@@ -221,7 +226,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     void putTask_invalidDeadline_returnsBadRequest() {
         Task task = Task.builder()
                 .name("Original Task")
-                
+
                 .deadline(LocalDate.now().plusDays(1))
                 .done(false)
                 .priority(priority)
@@ -235,7 +240,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         TaskRequestDTO update = new TaskRequestDTO(null, "Updated Task", "Updated description",
                 null, LocalDate.now().minusDays(1), priority.getId());
 
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
                 .then().statusCode(400)
                 .body("detail", containsString("Deadline must be in the future or present"));
     }
@@ -245,7 +250,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     void putTask_invalidDueDateLaterThanParent_returnsBadRequest() {
         Task parent = Task.builder()
                 .name("Parent Task")
-                
+
                 .deadline(LocalDate.now().plusDays(10))
                 .done(false)
                 .priority(priority)
@@ -257,7 +262,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
 
         Task child = Task.builder()
                 .name("Child Task")
-                
+
                 .deadline(LocalDate.now().plusDays(5))
                 .done(false)
                 .priority(priority)
@@ -273,7 +278,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         TaskRequestDTO update = new TaskRequestDTO(parent.getId(), "Updated Child Task", "Updated description",
                 LocalDate.now().plusDays(11), LocalDate.now().plusDays(11), priority.getId());
 
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", child.getId())
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", child.getId())
                 .then().statusCode(400)
                 .body("detail", containsString("cannot be after parent task's deadline"));
     }
@@ -309,7 +314,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         TaskRequestDTO update = new TaskRequestDTO(parent.getId(), "Updated Child Task", "Updated description",
                 null, LocalDate.now().plusDays(12), priority.getId());
 
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", child.getId())
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", child.getId())
                 .then().statusCode(400)
                 .body("detail", containsString("cannot be after parent task's deadline"));
     }
@@ -351,7 +356,7 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         TaskRequestDTO update = new TaskRequestDTO(parent.getId(), "Updated Child Task", "Updated description",
                 null, LocalDate.now().plusDays(5), childPriority.getId());
 
-        givenToken(token).body(update).when().put(TASKS_ENDPOINT + "/{id}", child.getId())
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", child.getId())
                 .then().statusCode(422)
                 .body(containsString("cannot exceed parent"));
     }

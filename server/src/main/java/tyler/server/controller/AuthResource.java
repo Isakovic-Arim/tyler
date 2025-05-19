@@ -1,67 +1,77 @@
 package tyler.server.controller;
 
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import tyler.server.dto.auth.AuthRequest;
-import tyler.server.entity.User;
-import tyler.server.repository.UserRepository;
+import tyler.server.service.AuthService;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.UUID;
+
+import static org.springframework.http.HttpHeaders.SET_COOKIE;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthResource {
-    private final AuthenticationManager authManager;
-    private final JwtEncoder jwtEncoder;
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final AuthService authService;
 
-    public AuthResource(AuthenticationManager authManager, JwtEncoder jwtEncoder,
-                          UserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this.authManager = authManager;
-        this.jwtEncoder = jwtEncoder;
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
-
-    @PostMapping("/login")
-    public Map<String,String> login(@RequestBody AuthRequest request) {
-        authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.username(), request.password())
-        );
-        Instant now = Instant.now();
-        String jwt = jwtEncoder.encode(
-                JwtEncoderParameters.from(JwtClaimsSet.builder()
-                        .subject(request.username())
-                        .issuedAt(now)
-                        .expiresAt(now.plus(1, ChronoUnit.HOURS))
-                        .build()
-                )
-        ).getTokenValue();
-        return Map.of("token", jwt);
+    public AuthResource(AuthService authService) {
+        this.authService = authService;
     }
 
     @PostMapping("/register")
     public ResponseEntity<Void> register(@RequestBody AuthRequest request) {
-        if (userRepository.existsByUsername((request.username()))) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
-        }
-        User user = new User();
-        user.setUsername(request.username());
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
-        userRepository.save(user);
+        authService.register(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Void> login(@RequestBody AuthRequest request) {
+        var response = authService.login(request);
+
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", response.accessToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(900)
+                .build();
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", response.refreshToken().toString())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/auth")
+                .maxAge(2592000)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(SET_COOKIE, accessCookie.toString())
+                .header(SET_COOKIE, refreshCookie.toString())
+                .build();
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<String> refresh(@CookieValue("refreshToken") UUID refreshToken) {
+        String token = authService.refreshAccessToken(refreshToken);
+
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", token)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(900)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(SET_COOKIE, accessCookie.toString())
+                .build();
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@CookieValue("refreshToken") UUID refreshToken) {
+        authService.revokeRefreshToken(refreshToken);
         return ResponseEntity.ok().build();
     }
 }

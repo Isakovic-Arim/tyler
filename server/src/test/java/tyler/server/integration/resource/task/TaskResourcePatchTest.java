@@ -21,11 +21,13 @@ import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
 import tyler.server.repository.PriorityRepository;
+import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -37,6 +39,8 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
     private PriorityRepository priorityRepository;
     @Autowired
     private TaskRepository taskRepository;
+    @Autowired
+    private RefreshTokenRepository refreshTokenRepository;
     @Autowired
     private UserRepository userRepository;
 
@@ -51,7 +55,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
             .build();
 
     private User user;
-    private String token;
+    private Map<String, String> cookies;
 
     @BeforeAll
     void setUp() {
@@ -68,7 +72,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
                 .build();
         userRepository.save(user);
 
-        token = getAuthToken(user.getUsername(), "test");
+        cookies = getAuthCookies(user.getUsername(), "test");
     }
 
     @AfterEach
@@ -80,6 +84,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
 
     @AfterAll
     void cleanUp() {
+        refreshTokenRepository.deleteAll();
         userRepository.delete(user);
         priorityRepository.delete(priority);
     }
@@ -103,7 +108,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
     }
 
     protected void verifyTask(Long id, String name, String description, Byte xp, Boolean done) {
-        var request = givenToken(token)
+        var request = givenCookies(cookies)
                 .when()
                 .get(TASKS_ENDPOINT + "/{id}", id)
                 .then()
@@ -130,14 +135,14 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
         task = taskRepository.save(task);
         createAclForTask(task);
 
-        givenToken(token).when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+        givenCookies(cookies).when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
         verifyTask(task.getId(), null, null, null, true);
     }
 
     @Test
     @WithMockUser(username = "user")
     void patchTaskDone_invalidId_returnsNotFound() {
-        givenToken(token).when().patch(TASKS_ENDPOINT + "/{id}/done", 999).then().statusCode(404);
+        givenCookies(cookies).when().patch(TASKS_ENDPOINT + "/{id}/done", 999).then().statusCode(404);
     }
 
     @Test
@@ -172,7 +177,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
         parent.addSubtask(child);
         taskRepository.save(parent);
 
-        givenToken(token).when().patch(TASKS_ENDPOINT + "/{id}/done", parent.getId()).then().statusCode(200);
+        givenCookies(cookies).when().patch(TASKS_ENDPOINT + "/{id}/done", parent.getId()).then().statusCode(200);
         verifyTask(child.getId(), null, null, null, true);
     }
 
@@ -204,7 +209,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
         task = taskRepository.save(task);
         createAclForTask(task);
 
-        givenToken(token)
+        givenCookies(cookies)
                 .when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
 
         User updatedUser = userRepository.findById(user.getId()).orElseThrow();
