@@ -1,7 +1,7 @@
 import type {Route} from "./+types/home";
 import {httpClient} from "~/service";
-import Kanban from '~/components/task-board'
-import {redirect, useLoaderData, useNavigate} from 'react-router';
+import TaskBoard from '~/components/task-board'
+import {redirect, useNavigate} from 'react-router';
 
 export function meta({}: Route.MetaArgs) {
     return [
@@ -19,7 +19,6 @@ const handleLogout = async () => {
 };
 
 export default function Home() {
-    const tasks = useLoaderData()
     const navigate = useNavigate()
 
     return <>
@@ -29,7 +28,7 @@ export default function Home() {
                 .then(async () => await navigate('/login'))
         }}>Logout
         </button>
-        <Kanban/>
+        <TaskBoard />
     </>;
 }
 

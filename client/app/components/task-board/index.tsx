@@ -1,10 +1,6 @@
 import {useEffect, useState} from "react";
 import {httpClient} from "~/service";
 import {
-    DndContext,
-    closestCenter,
-    useDraggable,
-    useDroppable,
     type DragEndEvent,
 } from "@dnd-kit/core";
 import {
@@ -16,55 +12,8 @@ import {
     isSameDay,
 } from "date-fns";
 import type {Task} from "~/models";
-
-function DraggableTask({task}: { task: Task }) {
-    const {attributes, listeners, setNodeRef, transform, isDragging} = useDraggable({
-        id: task.id.toString(),
-        data: {task},
-    });
-
-    const style = {
-        transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        opacity: isDragging ? 0.5 : 1,
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            {...listeners}
-            {...attributes}
-            style={style}
-            className="bg-white p-2 rounded shadow mb-2 cursor-move"
-        >
-            <p className="font-medium">{task.name}</p>
-            <p className="text-sm text-gray-500">{format(parseISO(task.dueDate), "MMM d")}</p>
-        </div>
-    );
-}
-
-function DroppableColumn({
-                             dayKey,
-                             dayName,
-                             tasks,
-                         }: {
-    dayKey: string;
-    dayName: string;
-    tasks: Task[];
-}) {
-    const {setNodeRef} = useDroppable({id: dayKey});
-
-    return (
-        <div
-            ref={setNodeRef}
-            className="border rounded p-2 bg-gray-50 min-h-[200px]"
-        >
-            <h2 className="text-lg font-bold mb-2">{dayName}</h2>
-            {tasks.map((task) => (
-                <DraggableTask key={task.id} task={task}/>
-            ))}
-        </div>
-    );
-}
+import TaskCalendar from './calendar-view'
+import AddTaskDialog from "./add-task-dialog";
 
 export default function TaskBoard() {
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -117,22 +66,13 @@ export default function TaskBoard() {
                 </button>
             </div>
 
-            <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <div className="grid grid-cols-7 gap-4">
-                    {daysOfWeek.map((date) => {
-                        const dayKey = format(date, "yyyy-MM-dd");
-                        const dayName = format(date, "EEEE");
-                        return (
-                            <DroppableColumn
-                                key={dayKey}
-                                dayKey={dayKey}
-                                dayName={dayName}
-                                tasks={groupedTasks[dayKey] || []}
-                            />
-                        );
-                    })}
-                </div>
-            </DndContext>
+            <TaskCalendar
+                daysOfWeek={daysOfWeek}
+                groupedTasks={groupedTasks}
+                onDragEnd={handleDragEnd}
+            />
+
+            <AddTaskDialog />
         </div>
     );
 }
