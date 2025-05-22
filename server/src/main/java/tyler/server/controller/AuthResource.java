@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.*;
 import tyler.server.dto.auth.AuthRequest;
 import tyler.server.service.AuthService;
 
-import java.util.Map;
 import java.util.UUID;
 
 import static org.springframework.http.HttpHeaders.SET_COOKIE;
@@ -71,7 +70,26 @@ public class AuthResource {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@CookieValue("refreshToken") UUID refreshToken) {
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(0)
+                .build();
+
         authService.revokeRefreshToken(refreshToken);
-        return ResponseEntity.ok().build();
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/auth")
+                .maxAge(0)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(SET_COOKIE, accessCookie.toString())
+                .header(SET_COOKIE, refreshCookie.toString())
+                .build();
     }
 }
