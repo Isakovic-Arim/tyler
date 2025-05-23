@@ -8,7 +8,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.acls.domain.BasePermission;
-import org.springframework.security.acls.domain.ObjectIdentityImpl;
 import org.springframework.security.acls.domain.PrincipalSid;
 import org.springframework.security.acls.jdbc.JdbcMutableAclService;
 import org.springframework.security.acls.model.MutableAcl;
@@ -21,6 +20,7 @@ import tyler.server.dto.task.TaskRequestDTO;
 import tyler.server.dto.task.TaskResponseDTO;
 import tyler.server.mapper.TaskMapper;
 import tyler.server.exception.ResourceNotFoundException;
+import tyler.server.repository.PriorityRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.service.ProgressService;
 import tyler.server.service.TaskService;
@@ -37,12 +37,20 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class TaskServiceTest {
 
-    @Mock private TaskRepository taskRepository;
-    @Mock private TaskMapper taskMapper;
-    @Mock private TaskValidator taskValidator;
-    @Mock private ProgressService progressService;
-    @Mock private JdbcMutableAclService aclService;
-    @InjectMocks private TaskService taskService;
+    @Mock
+    private TaskRepository taskRepository;
+    @Mock
+    private PriorityRepository priorityRepository;
+    @Mock
+    private TaskMapper taskMapper;
+    @Mock
+    private TaskValidator taskValidator;
+    @Mock
+    private ProgressService progressService;
+    @Mock
+    private JdbcMutableAclService aclService;
+    @InjectMocks
+    private TaskService taskService;
 
     private LocalDate today, tomorrow;
     private Priority priority;
@@ -57,27 +65,13 @@ class TaskServiceTest {
         today = LocalDate.now();
         tomorrow = today.plusDays(1);
         priority = Priority.builder().id(1L).name("HIGH").xp((byte) 10).build();
-        testUser = User.builder()
-                .id(1L)
-                .username("testuser")
-                .currentXp(0)
-                .dailyXpQuota(100)
-                .currentStreak(0)
-                .build();
+        testUser = User.builder().id(1L).username("testuser").currentXp(0).dailyXpQuota(100).currentStreak(0).build();
         mockAcl = mock(MutableAcl.class);
 
         defaultRequestDTO = new TaskRequestDTO(null, "Valid Task", "A well-formed description", today, tomorrow, 1L);
         responseDTO = new TaskResponseDTO(1L, 0, "Valid Task", "A well-formed description", today.toString(), tomorrow.toString(), (byte) 10, false);
-        baseTask = Task.builder()
-                .id(1L)
-                .name("Valid Task")
-                .description("A well-formed description")
-                .dueDate(today)
-                .deadline(tomorrow)
-                .priority(priority)
-                .done(false)
-                .user(testUser)
-                .build();
+        baseTask = Task.builder().id(1L).name("Valid Task").description("A well-formed description")
+                .dueDate(today).deadline(tomorrow).priority(priority).done(false).user(testUser).build();
     }
 
     private TaskRequestDTO requestWithParent(Long parentId) {
@@ -105,7 +99,7 @@ class TaskServiceTest {
     void getTaskById_ShouldHandleFoundAndNotFoundCases() {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
         when(taskMapper.toResponseDto(any(Task.class))).thenReturn(responseDTO);
-        
+
         assertThat(taskService.getTaskById(1L).name()).isEqualTo("Valid Task");
 
         when(taskRepository.findById(999L)).thenReturn(Optional.empty());
@@ -116,10 +110,10 @@ class TaskServiceTest {
     @WithMockUser(username = "testuser")
     void saveTask_ShouldCreateAclAndHandleValidSave() {
         var mappedTask = baseTask.toBuilder().id(null).build();
-        ObjectIdentity oid = new ObjectIdentityImpl(Task.class, 1L);
         Sid userSid = new PrincipalSid(testUser.getUsername());
 
         when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(mappedTask);
+        when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
         when(taskRepository.save(mappedTask)).thenReturn(baseTask);
         when(aclService.createAcl(any(ObjectIdentity.class))).thenReturn(mockAcl);
 
@@ -138,10 +132,8 @@ class TaskServiceTest {
         var request = requestWithPriority(null);
         var mappedTask = baseTask.toBuilder().priority(null).build();
         when(taskMapper.RequestDtoToTask(request)).thenReturn(mappedTask);
-        when(taskRepository.save(mappedTask)).thenReturn(baseTask);
-        when(aclService.createAcl(any(ObjectIdentity.class))).thenReturn(mockAcl);
 
-        assertThat(taskService.saveTask(testUser, request)).isEqualTo(1L);
+        assertThatThrownBy(() -> taskService.saveTask(testUser, request)).isInstanceOf(ConstraintViolationException.class);
 
         var invalidRequest = requestWithPriority(999L);
         when(taskMapper.RequestDtoToTask(invalidRequest)).thenThrow(new ConstraintViolationException("Invalid priority", null));
@@ -157,6 +149,7 @@ class TaskServiceTest {
         var savedSubtask = subtask.toBuilder().id(2L).build();
 
         when(taskMapper.RequestDtoToTask(request)).thenReturn(subtask);
+        when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
         when(taskRepository.save(subtask)).thenReturn(savedSubtask);
         when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
         when(aclService.createAcl(any(ObjectIdentity.class))).thenReturn(mockAcl);
@@ -167,16 +160,57 @@ class TaskServiceTest {
     @Test
     @WithMockUser(username = "testuser")
     void updateTask_ShouldUpdateIfExists_ElseThrow() {
-        var updated = baseTask;
-        when(taskRepository.existsById(1L)).thenReturn(true);
-        when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(updated);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
+        when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
+        when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(baseTask);
 
         taskService.updateTask(1L, defaultRequestDTO);
         verify(taskRepository).save(argThat(task -> task.getId() == 1L));
 
-        when(taskRepository.existsById(999L)).thenReturn(false);
-        assertThatThrownBy(() -> taskService.updateTask(999L, defaultRequestDTO))
-            .isInstanceOf(ResourceNotFoundException.class);
+        when(taskRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> taskService.updateTask(999L, defaultRequestDTO)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @WithMockUser(username = "testuser")
+    void updateTask_ShouldThrowIfParentNotFound() {
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
+        when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
+
+        var request = new TaskRequestDTO(999L, "Updated Name", "Desc", today, tomorrow, 1L);
+        var updatedTask = baseTask.toBuilder().id(1L).name("Updated Name").description("Desc")
+                .dueDate(today).deadline(tomorrow).priority(priority).done(false).user(testUser).build();
+
+        when(taskMapper.RequestDtoToTask(request)).thenReturn(updatedTask);
+        doThrow(new ConstraintViolationException("Parent Task with ID 999 does not exist", null)).when(taskRepository).findById(999L);
+
+        assertThatThrownBy(() -> taskService.updateTask(1L, request)).isInstanceOf(ConstraintViolationException.class);
+        verify(taskRepository, never()).save(any(Task.class));
+    }
+
+    @Test
+    @WithMockUser(username = "testuser")
+    void updateTask_ShouldThrowIfPriorityNotFound() {
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
+        when(priorityRepository.findById(999L)).thenThrow(new ConstraintViolationException("Priority with ID 999 does not exist", null));
+
+        var request = new TaskRequestDTO(null, "Updated Name", "Desc", today, tomorrow, 999L);
+        var updatedTask = baseTask.toBuilder().id(1L).name("Updated Name").description("Desc")
+                .dueDate(today).deadline(tomorrow).priority(null).done(false).user(testUser).build();
+
+        when(taskMapper.RequestDtoToTask(request)).thenReturn(updatedTask);
+        assertThatThrownBy(() -> taskService.updateTask(1L, request)).isInstanceOf(ConstraintViolationException.class);
+        verify(taskRepository, never()).save(any(Task.class));
+    }
+
+    @Test
+    @WithMockUser(username = "testuser")
+    void updateTask_ShouldCallValidatorAndSave() {
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
+        when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
+        when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(baseTask);
+
+        taskService.updateTask(1L, defaultRequestDTO);
     }
 
     @Test
@@ -184,9 +218,8 @@ class TaskServiceTest {
     void markTaskAsDone_ShouldHandleValidAndMissingCases() {
         var task = baseTask.toBuilder().done(false).build();
         when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
-        
+
         taskService.markTaskAsDone(1L);
-        
         assertThat(task.isDone()).isTrue();
         verify(progressService).handleTaskCompletion(task);
 
@@ -202,7 +235,7 @@ class TaskServiceTest {
         parent.getSubtasks().add(sub);
 
         when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
-        
+
         taskService.markTaskAsDone(1L);
 
         assertThat(parent.isDone()).isTrue();
@@ -214,9 +247,7 @@ class TaskServiceTest {
     @WithMockUser(username = "testuser")
     void deleteTask_ShouldDeleteIfExists_ElseThrow() {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
-        
         taskService.deleteTask(1L);
-        
         verify(taskRepository).deleteById(1L);
 
         when(taskRepository.findById(999L)).thenReturn(Optional.empty());
@@ -244,9 +275,8 @@ class TaskServiceTest {
         parent.getSubtasks().add(sub);
 
         when(taskRepository.findById(2L)).thenReturn(Optional.of(sub));
-        
-        taskService.deleteTask(2L);
 
+        taskService.deleteTask(2L);
         verify(taskRepository).deleteById(2L);
         assertThat(parent.getSubtasks()).doesNotContain(sub);
     }

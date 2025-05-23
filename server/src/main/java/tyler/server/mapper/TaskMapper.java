@@ -13,7 +13,7 @@ import tyler.server.dto.task.TaskResponseDTO;
     nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_DEFAULT
 )
 public abstract class TaskMapper {
-    @Mapping(source = "priorityId", target = "priority", qualifiedByName = "idToPriority")
+    @Mapping(target = "priority", ignore = true)
     @Mapping(target = "parent", ignore = true)
     @Mapping(target = "subtasks", ignore = true)
     @Mapping(target = "done", constant = "false")
