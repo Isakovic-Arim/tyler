@@ -19,7 +19,7 @@ public abstract class TaskMapper {
     @Mapping(target = "done", constant = "false")
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "user", ignore = true)
-    public abstract Task RequestDtoToTask(TaskRequestDTO taskRequestDTO);
+    public abstract Task toTask(TaskRequestDTO taskRequestDTO);
 
     @Mapping(target = "subtasks", expression = "java(task.getSubtasks().size())")
     @Mapping(target = "dueDate", defaultExpression = "java(\"\")")

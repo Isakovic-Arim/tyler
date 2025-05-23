@@ -112,7 +112,7 @@ class TaskServiceTest {
         var mappedTask = baseTask.toBuilder().id(null).build();
         Sid userSid = new PrincipalSid(testUser.getUsername());
 
-        when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(mappedTask);
+        when(taskMapper.toTask(defaultRequestDTO)).thenReturn(mappedTask);
         when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
         when(taskRepository.save(mappedTask)).thenReturn(baseTask);
         when(aclService.createAcl(any(ObjectIdentity.class))).thenReturn(mockAcl);
@@ -131,12 +131,12 @@ class TaskServiceTest {
     void saveTask_ShouldHandleNullAndInvalidPriority() {
         var request = requestWithPriority(null);
         var mappedTask = baseTask.toBuilder().priority(null).build();
-        when(taskMapper.RequestDtoToTask(request)).thenReturn(mappedTask);
+        when(taskMapper.toTask(request)).thenReturn(mappedTask);
 
         assertThatThrownBy(() -> taskService.saveTask(testUser, request)).isInstanceOf(ConstraintViolationException.class);
 
         var invalidRequest = requestWithPriority(999L);
-        when(taskMapper.RequestDtoToTask(invalidRequest)).thenThrow(new ConstraintViolationException("Invalid priority", null));
+        when(taskMapper.toTask(invalidRequest)).thenThrow(new ConstraintViolationException("Invalid priority", null));
         assertThatThrownBy(() -> taskService.saveTask(testUser, invalidRequest)).isInstanceOf(ConstraintViolationException.class);
     }
 
@@ -148,7 +148,7 @@ class TaskServiceTest {
         var subtask = baseTask.toBuilder().id(null).name("Subtask").parent(parent).build();
         var savedSubtask = subtask.toBuilder().id(2L).build();
 
-        when(taskMapper.RequestDtoToTask(request)).thenReturn(subtask);
+        when(taskMapper.toTask(request)).thenReturn(subtask);
         when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
         when(taskRepository.save(subtask)).thenReturn(savedSubtask);
         when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
@@ -162,7 +162,7 @@ class TaskServiceTest {
     void updateTask_ShouldUpdateIfExists_ElseThrow() {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
         when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
-        when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(baseTask);
+        when(taskMapper.toTask(defaultRequestDTO)).thenReturn(baseTask);
 
         taskService.updateTask(1L, defaultRequestDTO);
         verify(taskRepository).save(argThat(task -> task.getId() == 1L));
@@ -181,7 +181,7 @@ class TaskServiceTest {
         var updatedTask = baseTask.toBuilder().id(1L).name("Updated Name").description("Desc")
                 .dueDate(today).deadline(tomorrow).priority(priority).done(false).user(testUser).build();
 
-        when(taskMapper.RequestDtoToTask(request)).thenReturn(updatedTask);
+        when(taskMapper.toTask(request)).thenReturn(updatedTask);
         doThrow(new ConstraintViolationException("Parent Task with ID 999 does not exist", null)).when(taskRepository).findById(999L);
 
         assertThatThrownBy(() -> taskService.updateTask(1L, request)).isInstanceOf(ConstraintViolationException.class);
@@ -198,7 +198,7 @@ class TaskServiceTest {
         var updatedTask = baseTask.toBuilder().id(1L).name("Updated Name").description("Desc")
                 .dueDate(today).deadline(tomorrow).priority(null).done(false).user(testUser).build();
 
-        when(taskMapper.RequestDtoToTask(request)).thenReturn(updatedTask);
+        when(taskMapper.toTask(request)).thenReturn(updatedTask);
         assertThatThrownBy(() -> taskService.updateTask(1L, request)).isInstanceOf(ConstraintViolationException.class);
         verify(taskRepository, never()).save(any(Task.class));
     }
@@ -208,7 +208,7 @@ class TaskServiceTest {
     void updateTask_ShouldCallValidatorAndSave() {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
         when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
-        when(taskMapper.RequestDtoToTask(defaultRequestDTO)).thenReturn(baseTask);
+        when(taskMapper.toTask(defaultRequestDTO)).thenReturn(baseTask);
 
         taskService.updateTask(1L, defaultRequestDTO);
     }

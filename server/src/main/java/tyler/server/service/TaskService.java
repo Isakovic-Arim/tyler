@@ -62,14 +62,9 @@ public class TaskService {
 
     @Transactional
     public Long saveTask(User user, @Valid TaskRequestDTO request) {
-        Task task = taskMapper.RequestDtoToTask(request);
+        Task task = taskMapper.toTask(request);
 
-        task.setPriority(
-                priorityRepository.findById(request.priorityId())
-                        .orElseThrow(() -> new ConstraintViolationException(
-                                "Priority with ID " + request.priorityId() + " does not exist", null))
-        );
-
+        setTaskPriority(task, request.priorityId());
         user.addTask(task);
 
         if (request.parentId() != null) {
@@ -79,16 +74,7 @@ public class TaskService {
         validator.validate(task);
         task = taskRepository.save(task);
 
-        ObjectIdentity oid = new ObjectIdentityImpl(Task.class, task.getId());
-        MutableAcl acl = aclService.createAcl(oid);
-
-        Sid userSid = new PrincipalSid(user.getUsername());
-
-        acl.insertAce(0, BasePermission.READ, userSid, true);
-        acl.insertAce(1, BasePermission.WRITE, userSid, true);
-        acl.insertAce(2, BasePermission.DELETE, userSid, true);
-
-        aclService.updateAcl(acl);
+        createAclForTask(task, user);
         return task.getId();
     }
 
@@ -97,13 +83,9 @@ public class TaskService {
     public void updateTask(Long id, @Valid TaskRequestDTO request) {
         Task existing = findTaskById(id);
 
-        Task task = taskMapper.RequestDtoToTask(request);
+        Task task = taskMapper.toTask(request);
         task.setId(id);
-        task.setPriority(
-                priorityRepository.findById(request.priorityId()).orElseThrow(
-                        () -> new ConstraintViolationException("Priority with ID " + request.priorityId() + " does not exist", null)
-                )
-        );
+        setTaskPriority(task, request.priorityId());
         task.setUser(existing.getUser());
 
         if (request.parentId() != null) {
@@ -155,5 +137,25 @@ public class TaskService {
                 .orElseThrow(() -> new ConstraintViolationException(
                         "Parent Task with ID " + parentId + " does not exist", null));
         parent.addSubtask(task);
+    }
+
+    private void setTaskPriority(Task task, Long priorityId) {
+        task.setPriority(
+                priorityRepository.findById(priorityId)
+                        .orElseThrow(() -> new ConstraintViolationException(
+                                "Priority with ID " + priorityId + " does not exist", null))
+        );
+    }
+
+    private void createAclForTask(Task task, User user) {
+        ObjectIdentity oid = new ObjectIdentityImpl(Task.class, task.getId());
+        MutableAcl acl = aclService.createAcl(oid);
+
+        Sid userSid = new PrincipalSid(user.getUsername());
+        acl.insertAce(0, BasePermission.READ, userSid, true);
+        acl.insertAce(1, BasePermission.WRITE, userSid, true);
+        acl.insertAce(2, BasePermission.DELETE, userSid, true);
+
+        aclService.updateAcl(acl);
     }
 }

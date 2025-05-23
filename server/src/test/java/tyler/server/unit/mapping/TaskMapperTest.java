@@ -20,7 +20,7 @@ public class TaskMapperTest {
     private TaskMapperImpl taskMapper;
 
     @Test
-    public void requestDtoToTask_ShouldMapAllFields_WhenAllPropertiesProvided() {
+    public void toTask_ShouldMapAllFields_WhenAllPropertiesProvided() {
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(7);
 
@@ -33,7 +33,7 @@ public class TaskMapperTest {
             1L
         );
 
-        Task result = taskMapper.RequestDtoToTask(dto);
+        Task result = taskMapper.toTask(dto);
 
         assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Test Task");
@@ -45,7 +45,7 @@ public class TaskMapperTest {
     }
 
     @Test
-    public void requestDtoToTask_ShouldMapNullValues_WhenOptionalFieldsNotProvided() {
+    public void toTask_ShouldMapNullValues_WhenOptionalFieldsNotProvided() {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
 
         TaskRequestDTO dto = new TaskRequestDTO(
@@ -57,7 +57,7 @@ public class TaskMapperTest {
             1L
         );
 
-        Task result = taskMapper.RequestDtoToTask(dto);
+        Task result = taskMapper.toTask(dto);
 
         assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Minimal Task");
