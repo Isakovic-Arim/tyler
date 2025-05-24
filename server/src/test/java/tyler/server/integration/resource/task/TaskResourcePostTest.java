@@ -71,7 +71,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
                 .dailyXpQuota(10)
                 .currentStreak(0)
                 .daysOffPerWeek((byte) 2)
-                .offDays(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
+                .daysOff(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
                 .build();
         userRepository.save(user);
 

@@ -60,7 +60,7 @@ public class User implements UserDetails {
 
     @Column(name = "daily_xp_quota", nullable = false)
     @Min(value = 0, message = "Daily XP quota cannot be negative")
-    private int dailyXpQuota;
+    private int dailyXpQuota = 5;
 
     @Column(name = "current_streak", nullable = false)
     @Min(value = 0, message = "Current streak cannot be negative")
@@ -78,9 +78,9 @@ public class User implements UserDetails {
     @Column(name = "day_of_week")
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    private Set<DayOfWeek> offDays = Set.of();
+    private Set<DayOfWeek> daysOff = Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<RefreshToken> refreshTokens = new ArrayList<>();
 

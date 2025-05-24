@@ -68,7 +68,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
                 .dailyXpQuota(0)
                 .currentStreak(0)
                 .daysOffPerWeek((byte) 2)
-                .offDays(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
+                .daysOff(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
                 .build();
         userRepository.save(user);
 
@@ -186,7 +186,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
     void markTaskAsDone_userHasDayOffAndMissesDailyQuota_keepsStreak() {
         user.setCurrentStreak(5);
         user.setDailyXpQuota(5);
-        user.setOffDays(Set.of(LocalDate.now().minusDays(1).getDayOfWeek(),
+        user.setDaysOff(Set.of(LocalDate.now().minusDays(1).getDayOfWeek(),
                 LocalDate.now().minusDays(2).getDayOfWeek()));
         user.setDaysOffPerWeek((byte) 2);
         user.setLastAchievedDate(LocalDate.now().minusDays(3));

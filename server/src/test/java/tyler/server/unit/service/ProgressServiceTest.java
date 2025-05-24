@@ -41,6 +41,7 @@ class ProgressServiceTest {
                 .dailyXpQuota(100)
                 .currentStreak(0)
                 .lastAchievedDate(null)
+                .daysOff(Set.of())
                 .build();
 
         task = Task.builder()
@@ -124,7 +125,7 @@ class ProgressServiceTest {
 
     @Test
     void handleTaskCompletion_ShouldSkipXpOnOffDay() {
-        user.setOffDays(Set.of(today.getDayOfWeek()));
+        user.setDaysOff(Set.of(today.getDayOfWeek()));
         
         progressService.handleTaskCompletion(task);
 
@@ -135,7 +136,7 @@ class ProgressServiceTest {
 
     @Test
     void handleTaskCompletion_ShouldAddXpOnNonOffDay() {
-        user.setOffDays(Set.of(today.plusDays(1).getDayOfWeek())); // Set tomorrow as off day
+        user.setDaysOff(Set.of(today.plusDays(1).getDayOfWeek())); // Set tomorrow as off day
         
         progressService.handleTaskCompletion(task);
 
@@ -171,7 +172,7 @@ class ProgressServiceTest {
         user.addTask(task2);
         
         // Set tomorrow as off day
-        user.setOffDays(Set.of(tomorrow.getDayOfWeek()));
+        user.setDaysOff(Set.of(tomorrow.getDayOfWeek()));
 
         progressService.relocateTasksForOffDays(user);
 
@@ -197,7 +198,7 @@ class ProgressServiceTest {
         user.addTask(task);
         
         // Set tomorrow as off day
-        user.setOffDays(Set.of(tomorrow.getDayOfWeek()));
+        user.setDaysOff(Set.of(tomorrow.getDayOfWeek()));
 
         progressService.relocateTasksForOffDays(user);
 
@@ -223,7 +224,7 @@ class ProgressServiceTest {
         user.addTask(task);
         
         // Set tomorrow and day after tomorrow as off days
-        user.setOffDays(Set.of(tomorrow.getDayOfWeek(), dayAfterTomorrow.getDayOfWeek()));
+        user.setDaysOff(Set.of(tomorrow.getDayOfWeek(), dayAfterTomorrow.getDayOfWeek()));
 
         progressService.relocateTasksForOffDays(user);
 
@@ -248,7 +249,7 @@ class ProgressServiceTest {
         user.addTask(completedTask);
         
         // Set tomorrow as off day
-        user.setOffDays(Set.of(tomorrow.getDayOfWeek()));
+        user.setDaysOff(Set.of(tomorrow.getDayOfWeek()));
 
         progressService.relocateTasksForOffDays(user);
 

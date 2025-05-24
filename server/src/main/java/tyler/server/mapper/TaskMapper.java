@@ -9,7 +9,6 @@ import tyler.server.dto.task.TaskResponseDTO;
 
 @Mapper(
     componentModel = "spring",
-    uses = {PriorityMapper.class},
     nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_DEFAULT
 )
 public abstract class TaskMapper {
