@@ -1,5 +1,6 @@
 export interface TaskResponseDto {
     id: number;
+    parentId: number;
     subtasks: number;
     name: string;
     description: string;

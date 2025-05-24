@@ -2,6 +2,7 @@ import {useState, useEffect} from "react";
 import type {TaskResponseDto, TaskRequestDto} from "~/model/task";
 import type {PriorityResponseDto} from "~/model/priority";
 import {httpClient} from '~/service'
+import AddTaskDialog from '~/components/task-board/add-task-dialog'
 
 interface Props {
     id?: number;
@@ -60,7 +61,7 @@ export default function TaskUpdateDialog({id, onClose, onSave}: Props) {
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow-md max-w-md w-full space-y-4">
+            <div className="bg-white p-6 rounded shadow-md max-w-md w-full space-y-4">
                 <h2 className="text-lg font-bold">Edit Task</h2>
 
                 <input type="text" name="name" value={form.name} onChange={handleChange} required minLength={3}
@@ -81,11 +82,16 @@ export default function TaskUpdateDialog({id, onClose, onSave}: Props) {
                     {priorities.map(priority => <option value={priority.id}>{priority.name}</option>)}
                 </select>
 
+                <details>
+                    <summary>Add subtask</summary>
+                    <AddTaskDialog parentId={id} />
+                </details>
+
                 <div className="flex justify-end space-x-2">
                     <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+                    <button onClick={handleSubmit} className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
                 </div>
-            </form>
+            </div>
         </div>
     );
 }

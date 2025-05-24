@@ -13,7 +13,7 @@ import TaskCalendar from './calendar-view'
 import AddTaskDialog from "./add-task-dialog";
 import TaskUpdateDialog from './update-task-dialog'
 
-export default function TaskBoard({daysOff}: {daysOff: string[]}) {
+export default function TaskBoard({daysOff}: { daysOff: string[] }) {
     const [tasks, setTasks] = useState<TaskResponseDto[]>([]);
     const [selectedTask, setSelectedTask] = useState<TaskResponseDto | null>(null);
     const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
@@ -22,9 +22,10 @@ export default function TaskBoard({daysOff}: {daysOff: string[]}) {
     const daysOfWeek = Array.from({length: 7}, (_, i) => addDays(startOfCurrentWeek, i));
 
     useEffect(() => {
-        httpClient.get<TaskResponseDto[]>("tasks").then((res) => {
-            setTasks(res.data);
-        });
+        httpClient.get<TaskResponseDto[]>("tasks")
+            .then((res) => {
+                setTasks(res.data);
+            });
     }, []);
 
     const groupedTasks = daysOfWeek.reduce<Record<string, TaskResponseDto[]>>((acc, date) => {
@@ -46,7 +47,8 @@ export default function TaskBoard({daysOff}: {daysOff: string[]}) {
     }
 
     const handleRefresh = () => {
-        httpClient.get<TaskResponseDto[]>("tasks").then((res) => setTasks(res.data));
+        httpClient.get<TaskResponseDto[]>("tasks")
+            .then((res) => setTasks(res.data));
     };
 
     return (

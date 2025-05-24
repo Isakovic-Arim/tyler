@@ -1,14 +1,16 @@
 import { format } from "date-fns";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { httpClient } from "~/service";
+import type {TaskRequestDto} from "~/model/task";
 
-export default function Component() {
-    const [formData, setFormData] = useState({
+export default function Component({parentId}: {parentId?: number}) {
+    const [formData, setFormData] = useState<TaskRequestDto>({
         name: "",
         description: "",
         dueDate: format(new Date(), "yyyy-MM-dd"),
         deadline: format(new Date(), "yyyy-MM-dd"),
-        priorityId: "1",
+        parentId: parentId,
+        priorityId: 1,
     });
 
     const handleFormChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -21,15 +23,14 @@ export default function Component() {
         try {
             await httpClient.post("/tasks", {
                 ...formData,
-                parentId: null,
-                priorityId: parseInt(formData.priorityId),
+                priorityId: formData.priorityId,
             });
             setFormData({
                 name: "",
                 description: "",
                 dueDate: format(new Date(), "yyyy-MM-dd"),
                 deadline: format(new Date(), "yyyy-MM-dd"),
-                priorityId: "1",
+                priorityId: 1,
             });
         } catch (error) {
             console.error("Failed to add task:", error);
