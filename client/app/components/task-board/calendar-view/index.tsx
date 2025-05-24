@@ -6,12 +6,14 @@ export default function Component({
                                       daysOfWeek,
                                       groupedTasks,
                                       onTaskClick,
-    onDone
+                                      onDone,
+                                      onDelete
                                   }: {
     daysOfWeek: Date[];
     groupedTasks: Record<string, TaskResponseDto[]>;
     onTaskClick: (task: TaskResponseDto) => void;
     onDone: (task: TaskResponseDto) => void;
+    onDelete: (task: TaskResponseDto) => void;
 }) {
     return (
         <div className="grid grid-cols-7 gap-4">
@@ -25,6 +27,7 @@ export default function Component({
                         tasks={groupedTasks[dayKey] || []}
                         onTaskClick={onTaskClick}
                         onDone={onDone}
+                        onDelete={onDelete}
                     />
                 );
             })}

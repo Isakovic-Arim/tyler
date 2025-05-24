@@ -41,6 +41,10 @@ export default function TaskBoard() {
         await httpClient.patch(`tasks/${task.id}/done`)
     }
 
+    const handleDelete = async (task: TaskResponseDto) => {
+        await httpClient.delete(`tasks/${task.id}`);
+    }
+
     const handleRefresh = () => {
         httpClient.get<TaskResponseDto[]>("tasks").then((res) => setTasks(res.data));
     };
@@ -68,6 +72,7 @@ export default function TaskBoard() {
                 groupedTasks={groupedTasks}
                 onTaskClick={handleTaskClick}
                 onDone={handleDone}
+                onDelete={handleDelete}
             />
             <AddTaskDialog/>
             <TaskUpdateDialog id={selectedTask?.id} onClose={() => setSelectedTask(null)} onSave={handleRefresh}/>
