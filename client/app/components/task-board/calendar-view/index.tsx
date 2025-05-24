@@ -4,12 +4,14 @@ import DayColumn from "./DayColumn";
 
 export default function Component({
                                       daysOfWeek,
+                                      daysOff,
                                       groupedTasks,
                                       onTaskClick,
                                       onDone,
                                       onDelete
                                   }: {
     daysOfWeek: Date[];
+    daysOff: string[];
     groupedTasks: Record<string, TaskResponseDto[]>;
     onTaskClick: (task: TaskResponseDto) => void;
     onDone: (task: TaskResponseDto) => void;
@@ -24,6 +26,7 @@ export default function Component({
                     <DayColumn
                         key={dayKey}
                         dayName={dayName}
+                        isDayOff={daysOff.includes(dayName.toUpperCase())}
                         tasks={groupedTasks[dayKey] || []}
                         onTaskClick={onTaskClick}
                         onDone={onDone}

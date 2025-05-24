@@ -13,7 +13,7 @@ import TaskCalendar from './calendar-view'
 import AddTaskDialog from "./add-task-dialog";
 import TaskUpdateDialog from './update-task-dialog'
 
-export default function TaskBoard() {
+export default function TaskBoard({daysOff}: {daysOff: string[]}) {
     const [tasks, setTasks] = useState<TaskResponseDto[]>([]);
     const [selectedTask, setSelectedTask] = useState<TaskResponseDto | null>(null);
     const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
@@ -69,6 +69,7 @@ export default function TaskBoard() {
 
             <TaskCalendar
                 daysOfWeek={daysOfWeek}
+                daysOff={daysOff}
                 groupedTasks={groupedTasks}
                 onTaskClick={handleTaskClick}
                 onDone={handleDone}

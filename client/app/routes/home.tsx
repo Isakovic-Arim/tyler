@@ -1,6 +1,8 @@
 import type {Route} from "./+types/home";
 import {httpClient} from "~/service";
+import type {UserProfile} from '~/model/user'
 import TaskBoard from '~/components/task-board'
+import Profile from '~/components/user-profile'
 import {redirect, useNavigate} from 'react-router';
 
 export function meta({}: Route.MetaArgs) {
@@ -18,7 +20,8 @@ const handleLogout = async () => {
     }
 };
 
-export default function Home() {
+export default function Home({loaderData}: { loaderData: UserProfile }) {
+    const user = loaderData;
     const navigate = useNavigate()
 
     return <>
@@ -28,13 +31,14 @@ export default function Home() {
                 .then(async () => await navigate('/login'))
         }}>Logout
         </button>
-        <TaskBoard />
-    </>;
+        <TaskBoard daysOff={user.daysOff} />
+        <Profile user={user} />
+    </>
 }
 
 export async function clientLoader() {
     try {
-        const response = await httpClient.get('tasks');
+        const response = await httpClient.get<UserProfile>('users/me');
         return response.data;
     } catch (error) {
         console.error(error);
