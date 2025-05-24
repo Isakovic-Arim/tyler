@@ -83,17 +83,17 @@ public class TaskService {
     public void updateTask(Long id, @Valid TaskRequestDTO request) {
         Task existing = findTaskById(id);
 
-        Task task = taskMapper.toTask(request);
-        task.setId(id);
-        setTaskPriority(task, request.priorityId());
-        task.setUser(existing.getUser());
+        existing.setName(request.name());
+        existing.setDescription(request.description());
+        existing.setDueDate(request.dueDate());
+        existing.setDeadline(request.deadline());
+        setTaskPriority(existing, request.priorityId());
 
         if (request.parentId() != null) {
-            linkToParent(task, request.parentId());
+            linkToParent(existing, request.parentId());
         }
 
-        validator.validate(task);
-        taskRepository.save(task);
+        validator.validate(existing);
     }
 
     @PostAuthorize("hasPermission(#id, 'tyler.server.entity.Task', 'write')")

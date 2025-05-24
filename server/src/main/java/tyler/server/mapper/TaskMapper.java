@@ -23,8 +23,9 @@ public abstract class TaskMapper {
     @Mapping(target = "subtasks", expression = "java(task.getSubtasks().size())")
     @Mapping(target = "dueDate", defaultExpression = "java(\"\")")
     @Mapping(target = "xp", source = "priority.xp")
-    @Mapping(target = "description", defaultValue = "")
-    @Mapping(target = "name", defaultValue = "")
+    @Mapping(target = "description")
+    @Mapping(target = "name")
     @Mapping(target = "id", defaultExpression = "java(0L)")
+    @Mapping(target = "parentId", expression = "java(task.getParent() != null ? task.getParent().getId() : null)")
     public abstract TaskResponseDTO toResponseDto(Task task);
 }

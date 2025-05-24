@@ -1,5 +1,6 @@
 package tyler.server.integration.resource.task;
 
+import jakarta.persistence.EntityManagerFactory;
 import org.aspectj.runtime.internal.Conversions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -32,6 +33,7 @@ import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
 
+import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
@@ -45,6 +47,9 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
     private RefreshTokenRepository refreshTokenRepository;
     @Autowired
     private TaskRepository taskRepository;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
     
     @Autowired
     private JdbcMutableAclService aclService;
@@ -171,6 +176,43 @@ class TaskResourcePutTest extends BaseTaskResourceTest {
         givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
                 .then().statusCode(400)
                 .body("detail", containsString("Parent Task with ID 999 does not exist"));
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void putTask_shouldPreserveSubtasks() {
+        Task parent = Task.builder()
+                .name("Parent Task")
+                .deadline(LocalDate.now().plusDays(1))
+                .done(false)
+                .priority(priority)
+                .user(user)
+                .build();
+        Task subtask = Task.builder()
+                .name("Subtask")
+                .deadline(LocalDate.now().plusDays(1))
+                .done(false)
+                .priority(priority)
+                .user(user)
+                .build();
+        parent.addSubtask(subtask);
+        user.addTask(parent);
+        parent = taskRepository.save(parent);
+        createAclForTask(parent);
+
+        TaskRequestDTO update = new TaskRequestDTO(null, "Updated Parent Task", "Updated Parent Description",
+                null, LocalDate.now().plusDays(2), priority.getId());
+
+        givenCookies(cookies).body(update)
+            .when().put(TASKS_ENDPOINT + "/{id}", parent.getId())
+            .then().statusCode(200);
+
+        Task updatedParent = entityManagerFactory.createEntityManager().createQuery("SELECT t FROM Task t JOIN t.subtasks WHERE t.id = :id", Task.class)
+                .setParameter("id", parent.getId())
+                .getSingleResult();
+
+        assertThat(updatedParent.getSubtasks()).hasSize(1);
+        assertThat(updatedParent.getName()).isEqualTo("Updated Parent Task");
     }
 
     @Test

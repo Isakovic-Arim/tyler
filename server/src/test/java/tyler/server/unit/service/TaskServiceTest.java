@@ -69,7 +69,7 @@ class TaskServiceTest {
         mockAcl = mock(MutableAcl.class);
 
         defaultRequestDTO = new TaskRequestDTO(null, "Valid Task", "A well-formed description", today, tomorrow, 1L);
-        responseDTO = new TaskResponseDTO(1L, 0, "Valid Task", "A well-formed description", today.toString(), tomorrow.toString(), (byte) 10, false);
+        responseDTO = new TaskResponseDTO(1L, null, 0, "Valid Task", "A well-formed description", today.toString(), tomorrow.toString(), (byte) 10, false);
         baseTask = Task.builder().id(1L).name("Valid Task").description("A well-formed description")
                 .dueDate(today).deadline(tomorrow).priority(priority).done(false).user(testUser).build();
     }
@@ -162,10 +162,8 @@ class TaskServiceTest {
     void updateTask_ShouldUpdateIfExists_ElseThrow() {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
         when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
-        when(taskMapper.toTask(defaultRequestDTO)).thenReturn(baseTask);
 
         taskService.updateTask(1L, defaultRequestDTO);
-        verify(taskRepository).save(argThat(task -> task.getId() == 1L));
 
         when(taskRepository.findById(999L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> taskService.updateTask(999L, defaultRequestDTO)).isInstanceOf(ResourceNotFoundException.class);
@@ -178,14 +176,24 @@ class TaskServiceTest {
         when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
 
         var request = new TaskRequestDTO(999L, "Updated Name", "Desc", today, tomorrow, 1L);
-        var updatedTask = baseTask.toBuilder().id(1L).name("Updated Name").description("Desc")
-                .dueDate(today).deadline(tomorrow).priority(priority).done(false).user(testUser).build();
 
-        when(taskMapper.toTask(request)).thenReturn(updatedTask);
         doThrow(new ConstraintViolationException("Parent Task with ID 999 does not exist", null)).when(taskRepository).findById(999L);
 
         assertThatThrownBy(() -> taskService.updateTask(1L, request)).isInstanceOf(ConstraintViolationException.class);
         verify(taskRepository, never()).save(any(Task.class));
+    }
+
+    @Test
+    @WithMockUser(username = "testuser")
+    void updateTask_ShouldPreserveSubtasks() {
+        var parent = baseTask.toBuilder().build();
+        var subtask = baseTask.toBuilder().id(2L).parent(parent).build();
+        parent.getSubtasks().add(subtask);
+
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
+        when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
+
+        taskService.updateTask(1L, defaultRequestDTO);
     }
 
     @Test
@@ -195,10 +203,7 @@ class TaskServiceTest {
         when(priorityRepository.findById(999L)).thenThrow(new ConstraintViolationException("Priority with ID 999 does not exist", null));
 
         var request = new TaskRequestDTO(null, "Updated Name", "Desc", today, tomorrow, 999L);
-        var updatedTask = baseTask.toBuilder().id(1L).name("Updated Name").description("Desc")
-                .dueDate(today).deadline(tomorrow).priority(null).done(false).user(testUser).build();
 
-        when(taskMapper.toTask(request)).thenReturn(updatedTask);
         assertThatThrownBy(() -> taskService.updateTask(1L, request)).isInstanceOf(ConstraintViolationException.class);
         verify(taskRepository, never()).save(any(Task.class));
     }
@@ -208,7 +213,6 @@ class TaskServiceTest {
     void updateTask_ShouldCallValidatorAndSave() {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
         when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
-        when(taskMapper.toTask(defaultRequestDTO)).thenReturn(baseTask);
 
         taskService.updateTask(1L, defaultRequestDTO);
     }
