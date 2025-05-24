@@ -1,9 +1,6 @@
 import {useEffect, useState} from "react";
 import {httpClient} from "~/service";
 import {
-    type DragEndEvent,
-} from "@dnd-kit/core";
-import {
     format,
     parseISO,
     startOfWeek,
@@ -11,41 +8,41 @@ import {
     addWeeks,
     isSameDay,
 } from "date-fns";
-import type {Task} from "~/models";
+import type {TaskResponseDto} from "~/model/task";
 import TaskCalendar from './calendar-view'
 import AddTaskDialog from "./add-task-dialog";
+import TaskUpdateDialog from './update-task-dialog'
 
 export default function TaskBoard() {
-    const [tasks, setTasks] = useState<Task[]>([]);
+    const [tasks, setTasks] = useState<TaskResponseDto[]>([]);
+    const [selectedTask, setSelectedTask] = useState<TaskResponseDto | null>(null);
     const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
 
     const startOfCurrentWeek = addWeeks(startOfWeek(new Date(), {weekStartsOn: 0}), currentWeekOffset);
     const daysOfWeek = Array.from({length: 7}, (_, i) => addDays(startOfCurrentWeek, i));
 
     useEffect(() => {
-        httpClient.get<Task[]>("tasks").then((res) => {
+        httpClient.get<TaskResponseDto[]>("tasks").then((res) => {
             setTasks(res.data);
         });
     }, []);
 
-    const groupedTasks = daysOfWeek.reduce<Record<string, Task[]>>((acc, date) => {
+    const groupedTasks = daysOfWeek.reduce<Record<string, TaskResponseDto[]>>((acc, date) => {
         const dayKey = format(date, "yyyy-MM-dd");
         acc[dayKey] = tasks.filter((task) => isSameDay(parseISO(task.dueDate), date));
         return acc;
     }, {});
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const {over, active} = event;
-        if (!over) return;
+    const handleTaskClick = (task: TaskResponseDto) => {
+        setSelectedTask(task);
+    };
 
-        const taskId = parseInt(active.id as string);
-        const newDateKey = over.id as string;
+    const handleDone = async (task: TaskResponseDto) => {
+        await httpClient.patch(`tasks/${task.id}/done`)
+    }
 
-        setTasks((prevTasks) =>
-            prevTasks.map((task) =>
-                task.id === taskId ? {...task, dueDate: newDateKey} : task
-            )
-        );
+    const handleRefresh = () => {
+        httpClient.get<TaskResponseDto[]>("tasks").then((res) => setTasks(res.data));
     };
 
     return (
@@ -69,10 +66,11 @@ export default function TaskBoard() {
             <TaskCalendar
                 daysOfWeek={daysOfWeek}
                 groupedTasks={groupedTasks}
-                onDragEnd={handleDragEnd}
+                onTaskClick={handleTaskClick}
+                onDone={handleDone}
             />
-
-            <AddTaskDialog />
+            <AddTaskDialog/>
+            <TaskUpdateDialog id={selectedTask?.id} onClose={() => setSelectedTask(null)} onSave={handleRefresh}/>
         </div>
     );
 }
