@@ -18,7 +18,7 @@ public class ProgressService {
         if (user == null) return;
 
         // Don't add XP on off days, but still need to check streak
-        boolean isOffDay = user.getOffDays().contains(LocalDate.now().getDayOfWeek());
+        boolean isOffDay = user.getDaysOff().contains(LocalDate.now().getDayOfWeek());
         if (!isOffDay) {
             user.setCurrentXp(user.getCurrentXp() + task.getPriority().getXp());
         }
@@ -44,8 +44,8 @@ public class ProgressService {
         LocalDate today = LocalDate.now();
         List<Task> tasksToRelocate = user.getTasks().stream()
                 .filter(task -> !task.isDone() && task.getDueDate() != null &&
-                        (user.getOffDays().contains(task.getDueDate().getDayOfWeek()) ||
-                         user.getOffDays().contains(today.getDayOfWeek())))
+                        (user.getDaysOff().contains(task.getDueDate().getDayOfWeek()) ||
+                         user.getDaysOff().contains(today.getDayOfWeek())))
                 .collect(Collectors.toList());
 
         // Sort tasks by deadline to ensure we handle the most urgent tasks first
@@ -61,7 +61,7 @@ public class ProgressService {
 
     private LocalDate findNextAvailableDate(User user, LocalDate currentDate) {
         LocalDate nextDate = currentDate.plusDays(1);
-        while (user.getOffDays().contains(nextDate.getDayOfWeek())) {
+        while (user.getDaysOff().contains(nextDate.getDayOfWeek())) {
             nextDate = nextDate.plusDays(1);
         }
         return nextDate;
@@ -84,7 +84,7 @@ public class ProgressService {
         LocalDate checkDate = lastAchieved.plusDays(1);
 
         while (checkDate.isBefore(today)) {
-            if (!user.getOffDays().contains(checkDate.getDayOfWeek())) {
+            if (!user.getDaysOff().contains(checkDate.getDayOfWeek())) {
                 allDaysWereOffDays = false;
                 break;
             }

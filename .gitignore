@@ -52,3 +52,14 @@ replay_pid*
 ### OS-specific ###
 .DS_Store
 Thumbs.db
+
+**/private.key
+**/public.pub
+
+**/.DS_Store
+**/node_modules/
+
+# React Router
+**/.react-router/
+**/build/
+

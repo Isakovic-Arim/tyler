@@ -60,7 +60,7 @@ public class User implements UserDetails {
 
     @Column(name = "daily_xp_quota", nullable = false)
     @Min(value = 0, message = "Daily XP quota cannot be negative")
-    private int dailyXpQuota;
+    private int dailyXpQuota = 5;
 
     @Column(name = "current_streak", nullable = false)
     @Min(value = 0, message = "Current streak cannot be negative")
@@ -78,16 +78,30 @@ public class User implements UserDetails {
     @Column(name = "day_of_week")
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    private Set<DayOfWeek> offDays = Set.of();
+    private Set<DayOfWeek> daysOff = Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<RefreshToken> refreshTokens = new ArrayList<>();
 
     public void addTask(Task task) {
-        tasks.add(task);
         task.setUser(this);
+        tasks.add(task);
     }
 
     public void removeTask(Task task) {
-        tasks.remove(task);
         task.setUser(null);
+        tasks.remove(task);
+    }
+
+    public void addRefreshToken(RefreshToken refreshToken) {
+        refreshToken.setUser(this);
+        refreshTokens.add(refreshToken);
+    }
+
+    public void removeRefreshToken(RefreshToken refreshToken) {
+        refreshToken.setUser(null);
+        refreshTokens.remove(refreshToken);
     }
 
     @Override

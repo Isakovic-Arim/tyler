@@ -21,29 +21,34 @@ import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
 import tyler.server.repository.PriorityRepository;
+import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.Set;
 
 class TaskResourceDeleteTest extends BaseTaskResourceTest {
 
     @Autowired
-    private TaskRepository taskRepository;
-    @Autowired
-    private JdbcMutableAclService aclService;
-    @Autowired
-    private PlatformTransactionManager transactionManager;
+    private RefreshTokenRepository refreshTokenRepository;
     @Autowired
     private UserRepository userRepository;
     @Autowired
     private PriorityRepository priorityRepository;
+    @Autowired
+    private TaskRepository taskRepository;
+
+    @Autowired
+    private JdbcMutableAclService aclService;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     private Priority priority;
     private User user;
-    private String token;
+    private Map<String, String> cookies;
 
     @BeforeAll
     void setUp() {
@@ -60,11 +65,11 @@ class TaskResourceDeleteTest extends BaseTaskResourceTest {
                 .dailyXpQuota(0)
                 .currentStreak(0)
                 .daysOffPerWeek((byte) 2)
-                .offDays(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
+                .daysOff(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
                 .build();
         userRepository.save(user);
 
-        token = getAuthToken(user.getUsername(), "test");
+        cookies = getAuthCookies(user.getUsername(), "test");
     }
 
     @AfterEach
@@ -76,6 +81,7 @@ class TaskResourceDeleteTest extends BaseTaskResourceTest {
 
     @AfterAll
     void cleanUp() {
+        refreshTokenRepository.deleteAll();
         userRepository.delete(user);
         priorityRepository.delete(priority);
     }
@@ -110,13 +116,13 @@ class TaskResourceDeleteTest extends BaseTaskResourceTest {
         task = taskRepository.save(task);
         createAclForTask(task);
 
-        givenToken(token).when().delete(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(204);
+        givenCookies(cookies).when().delete(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(204);
     }
 
     @Test
     @WithMockUser(username = "user")
     void deleteTask_invalidId_returnsNotFound() {
-        givenToken(token).when().delete(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
+        givenCookies(cookies).when().delete(TASKS_ENDPOINT + "/{id}", 999).then().statusCode(404);
     }
 
     @Test
@@ -147,7 +153,7 @@ class TaskResourceDeleteTest extends BaseTaskResourceTest {
         parent.addSubtask(child);
         taskRepository.save(parent);
 
-        givenToken(token).when().delete(TASKS_ENDPOINT + "/{id}", parent.getId()).then().statusCode(204);
-        givenToken(token).when().get(TASKS_ENDPOINT + "/{id}", child.getId()).then().statusCode(404);
+        givenCookies(cookies).when().delete(TASKS_ENDPOINT + "/{id}", parent.getId()).then().statusCode(204);
+        givenCookies(cookies).when().get(TASKS_ENDPOINT + "/{id}", child.getId()).then().statusCode(404);
     }
 }

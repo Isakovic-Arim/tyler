@@ -9,23 +9,23 @@ import tyler.server.dto.task.TaskResponseDTO;
 
 @Mapper(
     componentModel = "spring",
-    uses = {PriorityMapper.class},
     nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.SET_TO_DEFAULT
 )
 public abstract class TaskMapper {
-    @Mapping(source = "priorityId", target = "priority", qualifiedByName = "idToPriority")
+    @Mapping(target = "priority", ignore = true)
     @Mapping(target = "parent", ignore = true)
     @Mapping(target = "subtasks", ignore = true)
     @Mapping(target = "done", constant = "false")
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "user", ignore = true)
-    public abstract Task RequestDtoToTask(TaskRequestDTO taskRequestDTO);
+    public abstract Task toTask(TaskRequestDTO taskRequestDTO);
 
     @Mapping(target = "subtasks", expression = "java(task.getSubtasks().size())")
     @Mapping(target = "dueDate", defaultExpression = "java(\"\")")
     @Mapping(target = "xp", source = "priority.xp")
-    @Mapping(target = "description", defaultValue = "")
-    @Mapping(target = "name", defaultValue = "")
+    @Mapping(target = "description")
+    @Mapping(target = "name")
     @Mapping(target = "id", defaultExpression = "java(0L)")
+    @Mapping(target = "parentId", expression = "java(task.getParent() != null ? task.getParent().getId() : null)")
     public abstract TaskResponseDTO toResponseDto(Task task);
 }

@@ -14,6 +14,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import tyler.server.dto.auth.AuthRequest;
 
+import java.util.Map;
+
 import static io.restassured.RestAssured.given;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -39,7 +41,7 @@ public abstract class BaseTaskResourceTest {
         RestAssured.registerParser("text/plain", Parser.TEXT);
     }
 
-    protected String getAuthToken(String username, String password) {
+    protected Map<String, String> getAuthCookies(String username, String password) {
         AuthRequest authRequest = new AuthRequest(username, password);
         return given()
                 .contentType(ContentType.JSON)
@@ -49,12 +51,12 @@ public abstract class BaseTaskResourceTest {
                 .then()
                 .statusCode(200)
                 .extract()
-                .path("token");
+                .cookies();
     }
 
-    protected RequestSpecification givenToken(String token) {
+    protected RequestSpecification givenCookies(Map<String, String> cookies) {
         return given()
                 .contentType(ContentType.JSON)
-                .header("Authorization", "Bearer " + token);
+                .cookies(cookies);
     }
 } 

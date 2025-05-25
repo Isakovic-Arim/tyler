@@ -3,31 +3,24 @@ package tyler.server.unit.mapping;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.dto.task.TaskRequestDTO;
-import tyler.server.mapper.PriorityMapper;
 import tyler.server.mapper.TaskMapperImpl;
 
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class TaskMapperTest {
-    @Mock
-    private PriorityMapper priorityMapper;
-
     @Spy
     @InjectMocks
     private TaskMapperImpl taskMapper;
 
     @Test
-    public void requestDtoToTask_ShouldMapAllFields_WhenAllPropertiesProvided() {
+    public void toTask_ShouldMapAllFields_WhenAllPropertiesProvided() {
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(7);
 
@@ -40,26 +33,19 @@ public class TaskMapperTest {
             1L
         );
 
-        Priority priority = new Priority();
-        priority.setId(1L);
-        priority.setName("HIGH");
-
-        when(priorityMapper.idToPriority(1L)).thenReturn(priority);
-
-        Task result = taskMapper.RequestDtoToTask(dto);
+        Task result = taskMapper.toTask(dto);
 
         assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Test Task");
         assertThat(result.getDescription()).isEqualTo("Task Description");
         assertThat(result.getDueDate()).isEqualTo(today);
         assertThat(result.getDeadline()).isEqualTo(tomorrow);
-        assertThat(result.getPriority()).isEqualTo(priority);
         assertThat(result.isDone()).isFalse();
         assertThat(result.getId()).isNull();
     }
 
     @Test
-    public void requestDtoToTask_ShouldMapNullValues_WhenOptionalFieldsNotProvided() {
+    public void toTask_ShouldMapNullValues_WhenOptionalFieldsNotProvided() {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
 
         TaskRequestDTO dto = new TaskRequestDTO(
@@ -71,19 +57,13 @@ public class TaskMapperTest {
             1L
         );
 
-        Priority priority = new Priority();
-        priority.setId(1L);
-
-        when(priorityMapper.idToPriority(1L)).thenReturn(priority);
-
-        Task result = taskMapper.RequestDtoToTask(dto);
+        Task result = taskMapper.toTask(dto);
 
         assertThat(result).isNotNull();
         assertThat(result.getName()).isEqualTo("Minimal Task");
         assertThat(result.getDescription()).isNull();
         assertThat(result.getDueDate()).isNull();
         assertThat(result.getDeadline()).isEqualTo(tomorrow);
-        assertThat(result.getPriority()).isEqualTo(priority);
         assertThat(result.getParent()).isNull();
         assertThat(result.isDone()).isFalse();
     }
