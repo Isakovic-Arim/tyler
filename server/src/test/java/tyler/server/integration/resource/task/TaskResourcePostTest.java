@@ -195,7 +195,7 @@ class TaskResourcePostTest extends BaseTaskResourceTest {
     @WithMockUser(username = "user")
     void postTask_dueDateLaterThanDeadline_returnsBadRequest() {
         TaskRequestDTO task = new TaskRequestDTO(null, "Valid Task", null, LocalDate.now().plusDays(2), LocalDate.now().plusDays(1), priority.getId());
-        givenToken(token).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400)
+        givenCookies(cookies).body(task).when().post(TASKS_ENDPOINT).then().statusCode(400)
                 .body("detail", containsString("Due date cannot be after task's deadline"));
     }
 

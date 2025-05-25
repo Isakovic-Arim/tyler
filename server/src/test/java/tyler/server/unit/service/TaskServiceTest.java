@@ -172,11 +172,12 @@ class TaskServiceTest {
                 .user(testUser)
                 .build();
 
-        when(taskMapper.RequestDtoToTask(invalidRequest))
+        when(taskMapper.toTask(invalidRequest))
                 .thenReturn(baseTask.toBuilder()
                         .dueDate(LocalDate.now().plusDays(5))
                         .deadline(LocalDate.now().plusDays(3))
                         .build());
+        when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
         doThrow(new ConstraintViolationException("Due date cannot be after deadline", null))
                 .when(taskValidator).validate(baseTask);
 
@@ -190,7 +191,7 @@ class TaskServiceTest {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(baseTask));
         var childReq = new TaskRequestDTO(1L, "Subtask", "desc",
                 LocalDate.now(), LocalDate.now().plusDays(1), 1L);
-        when(taskMapper.RequestDtoToTask(childReq))
+        when(taskMapper.toTask(childReq))
                 .thenReturn(baseTask.toBuilder()
                         .priority(Priority.builder().xp((byte) 15).build())
                         .build());
@@ -199,8 +200,9 @@ class TaskServiceTest {
         var child = baseTask.toBuilder().id(2L).priority(
                 Priority.builder().xp((byte) 12).build()).parent(parent).build();
 
-        when(taskMapper.RequestDtoToTask(childReq)).thenReturn(child);
+        when(taskMapper.toTask(childReq)).thenReturn(child);
         when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
+        when(priorityRepository.findById(1L)).thenReturn(Optional.of(priority));
         doThrow(new ConstraintViolationException("Subtasks' XP cannot exceed parent", null))
                 .when(taskValidator).validate(child);
 
