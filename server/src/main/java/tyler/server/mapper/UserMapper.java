@@ -16,5 +16,6 @@ public abstract class UserMapper {
     @Mapping(target = "dailyQuota", source = "dailyXpQuota")
     @Mapping(target = "currentStreak", source = "currentStreak")
     @Mapping(target = "daysOff", source = "daysOff")
+    @Mapping(target = "daysOffPerWeek", source = "daysOffPerWeek")
     public abstract UserProfileDto toUserProfileDto(User user);
 }

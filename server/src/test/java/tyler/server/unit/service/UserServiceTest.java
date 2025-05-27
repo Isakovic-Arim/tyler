@@ -132,6 +132,22 @@ class UserServiceTest {
     }
 
     @Test
+    void removeDayOff_ShouldRemoveDayOff() {
+        String username = "testuser";
+        LocalDate dayOff = LocalDate.now().with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+        testUser.getDaysOff().add(dayOff);
+        testUser.setDaysOffPerWeek((byte) 1);
+
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(testUser));
+
+        userService.removeDayOff(username, dayOff);
+
+        assertThat(testUser.getDaysOff()).doesNotContain(dayOff);
+        assertThat(testUser.getDaysOffPerWeek()).isEqualTo((byte) 2);
+        verify(userRepository).save(testUser);
+    }
+
+    @Test
     void resetDaysOffPerWeek_ShouldResetDaysOffPerWeek() {
         User user = new User();
         user.setDaysOffPerWeek((byte) 0);

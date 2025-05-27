@@ -8,5 +8,6 @@ public record UserProfileDto(
         int currentXp,
         int dailyQuota,
         int currentStreak,
+        byte daysOffPerWeek,
         Set<LocalDate> daysOff
 ) {}

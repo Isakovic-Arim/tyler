@@ -33,4 +33,10 @@ public class UserResource {
         userService.setDayOff(principal.getName(), dayOff);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping("/me/day-off")
+    public ResponseEntity<Void> removeDayOff(Principal principal, @RequestParam LocalDate date) {
+        userService.removeDayOff(principal.getName(), date);
+        return ResponseEntity.noContent().build();
+    }
 }

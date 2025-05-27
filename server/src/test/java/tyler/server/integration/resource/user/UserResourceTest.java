@@ -14,10 +14,10 @@ import tyler.server.entity.User;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
-class UserResourcePostTest extends BaseResourceTest {
+class UserResourceTest extends BaseResourceTest {
 
     @Autowired
     private UserRepository userRepository;
@@ -36,7 +36,6 @@ class UserResourcePostTest extends BaseResourceTest {
                 .dailyXpQuota(10)
                 .currentStreak(0)
                 .daysOffPerWeek((byte) 2)
-                .daysOff(Set.of())
                 .build();
         userRepository.save(user);
 
@@ -45,7 +44,7 @@ class UserResourcePostTest extends BaseResourceTest {
 
     @AfterEach
     void cleanUpEach() {
-        user.setDaysOff(Set.of());
+        user.setDaysOff(new HashSet<>());
         userRepository.save(user);
     }
 
@@ -66,6 +65,52 @@ class UserResourcePostTest extends BaseResourceTest {
                 .post("/users/me/day-off")
                 .then()
                 .statusCode(204);
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void setDayOff_alreadyHasDayOff_returnsBadRequest() {
+        LocalDate dayOff = LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        user.getDaysOff().add(dayOff);
+        userRepository.save(user);
+
+        givenCookies(cookies)
+                .body(dayOff)
+                .when()
+                .post("/users/me/day-off")
+                .then()
+                .statusCode(400);
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void removeDayOff_validDayOff_returnsNoContent() {
+        LocalDate dayOff = LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        user.getDaysOff().add(dayOff);
+        user.setDaysOffPerWeek((byte) 1);
+        userRepository.save(user);
+
+        givenCookies(cookies)
+                .when()
+                .queryParam("date", dayOff.toString())
+                .delete("/users/me/day-off")
+                .then()
+                .statusCode(204);
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void removeDayOff_today_returnsBadRequest() {
+        LocalDate today = LocalDate.now();
+        user.getDaysOff().add(today);
+        userRepository.save(user);
+
+        givenCookies(cookies)
+                .body(today)
+                .when()
+                .delete("/users/me/day-off")
+                .then()
+                .statusCode(400);
     }
 
     @Test

@@ -10,7 +10,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import tyler.server.entity.User;
-import tyler.server.exception.BusinessValidationException;
 import tyler.server.repository.UserRepository;
 import tyler.server.validation.constraints.currentweek.CurrentWeek;
 
@@ -54,8 +53,23 @@ public class UserService implements UserDetailsService {
         if (daysOffPerWeek < 1) {
             throw new IllegalStateException("No days off available for this week");
         }
+        if (user.getDaysOff().contains(dayOff)) {
+            throw new IllegalStateException("Day off already set for this date");
+        }
         user.getDaysOff().add(dayOff);
         user.setDaysOffPerWeek(--daysOffPerWeek);
+        userRepository.save(user);
+    }
+
+    public void removeDayOff(String username, @CurrentWeek LocalDate dayOff) {
+        User user = findByUsername(username);
+        if (!user.getDaysOff().remove(dayOff)) {
+            throw new IllegalStateException("Day off not found for this date");
+        }
+        if (dayOff.isEqual(LocalDate.now())) {
+            throw new IllegalStateException("Cannot remove today's day off");
+        }
+        user.setDaysOffPerWeek((byte) (user.getDaysOffPerWeek() + 1));
         userRepository.save(user);
     }
 
