@@ -3,5 +3,6 @@ export interface UserProfile {
     currentXp: number;
     dailyQuota: number;
     currentStreak: number;
+    daysOffPerWeek: number;
     daysOff: string[]
 }

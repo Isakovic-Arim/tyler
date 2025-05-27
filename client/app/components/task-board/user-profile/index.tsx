@@ -33,7 +33,6 @@ export default function UserProfileSidebar({user}: Props) {
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-gray-900">{user.username}</h2>
-                    <p className="text-sm text-gray-500">Task Master</p>
                 </div>
             </div>
 
@@ -126,7 +125,7 @@ export default function UserProfileSidebar({user}: Props) {
                         </div>
                         <div>
                             <p className="text-sm text-gray-600">Days Off</p>
-                            <p className="text-lg font-bold text-purple-700">{user.daysOff.length} days</p>
+                            <p className="text-lg font-bold text-purple-700">{user.daysOffPerWeek} days</p>
                         </div>
                     </div>
                     {user.daysOff.length > 0 && (

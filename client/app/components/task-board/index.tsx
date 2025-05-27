@@ -2,14 +2,16 @@ import { useEffect, useState } from "react"
 import { httpClient } from "~/service"
 import { format, parseISO, startOfWeek, addDays, addWeeks, isSameDay } from "date-fns"
 import type { TaskResponseDto } from "~/model/task"
+import type { UserProfile } from "~/model/user"
 import TaskCalendar from "./calendar-view"
 import AddTaskPopover from "./add-task-dialog"
 import TaskUpdatePopover from "./update-task-dialog"
 import { Plus } from "lucide-react"
 import UserProfileSidebar from "./user-profile"
 
-export default function TaskBoard({ daysOff, user }: { daysOff: string[]; user: any }) {
+export default function TaskBoard({user: initialUser }: { user: UserProfile }) {
     const [tasks, setTasks] = useState<TaskResponseDto[]>([])
+    const [user, setUser] = useState<UserProfile>(initialUser)
     const [selectedTask, setSelectedTask] = useState<TaskResponseDto | null>(null)
     const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
     const [showAddTask, setShowAddTask] = useState(false)
@@ -23,6 +25,14 @@ export default function TaskBoard({ daysOff, user }: { daysOff: string[]; user: 
             setTasks(res.data)
         })
     }, [])
+
+    useEffect(() => {
+        if (currentWeekOffset === 0) {
+            httpClient.get<UserProfile>("users/me").then((res) => {
+                setUser(res.data)
+            })
+        }
+    }, [currentWeekOffset])
 
     const groupedTasks = daysOfWeek.reduce<Record<string, TaskResponseDto[]>>((acc, date) => {
         const dayKey = format(date, "yyyy-MM-dd")
@@ -46,11 +56,48 @@ export default function TaskBoard({ daysOff, user }: { daysOff: string[]; user: 
 
     const handleRefresh = () => {
         httpClient.get<TaskResponseDto[]>("tasks").then((res) => setTasks(res.data))
+        httpClient.get<UserProfile>("users/me").then((res) => setUser(res.data))
     }
 
     const handleAddTask = (date?: string) => {
         setAddTaskDate(date || format(new Date(), "yyyy-MM-dd"))
         setShowAddTask(true)
+    }
+
+    const handleToggleDayOff = async (date: string) => {
+        if (currentWeekOffset !== 0) return
+
+        try {
+            const isDayOff = user.daysOff.includes(date)
+
+            if (isDayOff) {
+                await httpClient.delete("/users/me/day-off", {
+                    params: {'date': date}
+                })
+            } else {
+                const currentWeekDaysOff = user.daysOff.filter((dayOff) => {
+                    const dayOffDate = parseISO(dayOff)
+                    return daysOfWeek.some((weekDate) => format(weekDate, "yyyy-MM-dd") === format(dayOffDate, "yyyy-MM-dd"))
+                })
+
+                if (currentWeekDaysOff.length >= 2) {
+                    alert("You can only set 2 days off per week")
+                    return
+                }
+
+                await httpClient.post("/users/me/day-off", JSON.stringify(date), {
+                    headers: {
+                        "Content-Type": "application/json",
+                    }
+                })
+            }
+
+            // Refresh user data
+            const response = await httpClient.get<UserProfile>("users/me")
+            setUser(response.data)
+        } catch (error) {
+            console.error("Failed to toggle day off:", error)
+        }
     }
 
     return (
@@ -68,7 +115,12 @@ export default function TaskBoard({ daysOff, user }: { daysOff: string[]; user: 
                     >
                         ← Previous
                     </button>
-                    <h1 className="text-2xl font-bold text-gray-900">Week of {format(startOfCurrentWeek, "MMM d, yyyy")}</h1>
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold text-gray-900">Week of {format(startOfCurrentWeek, "MMM d, yyyy")}</h1>
+                        {currentWeekOffset === 0 && (
+                            <p className="text-sm text-gray-500 mt-1">Click on day headers to set days off (max 2 per week)</p>
+                        )}
+                    </div>
                     <button
                         onClick={() => setCurrentWeekOffset((prev) => prev + 1)}
                         className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-colors shadow-sm border border-gray-200"
@@ -80,12 +132,14 @@ export default function TaskBoard({ daysOff, user }: { daysOff: string[]; user: 
                 {/* Calendar View */}
                 <TaskCalendar
                     daysOfWeek={daysOfWeek}
-                    daysOff={daysOff}
+                    daysOff={user.daysOff}
                     groupedTasks={groupedTasks}
                     onTaskClick={handleTaskClick}
                     onDone={handleDone}
                     onDelete={handleDelete}
                     onAddTask={handleAddTask}
+                    onToggleDayOff={handleToggleDayOff}
+                    isCurrentWeek={currentWeekOffset === 0}
                 />
 
                 {/* Floating Add Button */}

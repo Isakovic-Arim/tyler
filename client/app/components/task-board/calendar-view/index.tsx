@@ -10,6 +10,8 @@ export default function Component({
                                       onDone,
                                       onDelete,
                                       onAddTask,
+                                      onToggleDayOff,
+                                      isCurrentWeek,
                                   }: {
     daysOfWeek: Date[]
     daysOff: string[]
@@ -18,6 +20,8 @@ export default function Component({
     onDone: (task: TaskResponseDto) => void
     onDelete: (task: TaskResponseDto) => void
     onAddTask: (date: string) => void
+    onToggleDayOff: (date: string) => void
+    isCurrentWeek: boolean
 }) {
     return (
         <div className="grid grid-cols-7 gap-4">
@@ -25,18 +29,22 @@ export default function Component({
                 const dayKey = format(date, "yyyy-MM-dd")
                 const dayName = format(date, "EEEE")
                 const dayNumber = format(date, "d")
+                const isDayOff = daysOff.includes(dayKey)
+
                 return (
                     <DayColumn
                         key={dayKey}
                         date={dayKey}
                         dayName={dayName}
                         dayNumber={dayNumber}
-                        isDayOff={daysOff.includes(dayName.toUpperCase())}
+                        isDayOff={isDayOff}
                         tasks={groupedTasks[dayKey] || []}
                         onTaskClick={onTaskClick}
                         onDone={onDone}
                         onDelete={onDelete}
                         onAddTask={onAddTask}
+                        onToggleDayOff={onToggleDayOff}
+                        isCurrentWeek={isCurrentWeek}
                     />
                 )
             })}
