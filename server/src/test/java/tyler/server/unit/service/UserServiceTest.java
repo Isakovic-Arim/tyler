@@ -14,6 +14,9 @@ import tyler.server.entity.User;
 import tyler.server.repository.UserRepository;
 import tyler.server.service.UserService;
 
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -33,13 +36,13 @@ class UserServiceTest {
     @BeforeEach
     void setUp() {
         testUser = User.builder()
-            .id(1L)
-            .username("testuser")
-            .passwordHash("hashedPassword123")
-            .currentXp(100)
-            .dailyXpQuota(50)
-            .currentStreak(3)
-            .build();
+                .id(1L)
+                .username("testuser")
+                .passwordHash("hashedPassword123")
+                .currentXp(100)
+                .dailyXpQuota(50)
+                .currentStreak(3)
+                .build();
     }
 
     @Test
@@ -52,13 +55,13 @@ class UserServiceTest {
         assertThat(userDetails.getUsername()).isEqualTo("testuser");
         assertThat(userDetails.getPassword()).isEqualTo("hashedPassword123");
         assertThat(userDetails.getAuthorities())
-            .hasSize(1)
-            .first()
-            .isInstanceOf(SimpleGrantedAuthority.class)
-            .satisfies(authority -> 
-                assertThat(authority.getAuthority()).isEqualTo("ROLE_USER")
-            );
-        
+                .hasSize(1)
+                .first()
+                .isInstanceOf(SimpleGrantedAuthority.class)
+                .satisfies(authority ->
+                        assertThat(authority.getAuthority()).isEqualTo("ROLE_USER")
+                );
+
         verify(userRepository).findByUsername("testuser");
     }
 
@@ -67,8 +70,8 @@ class UserServiceTest {
         when(userRepository.findByUsername("nonexistent")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.loadUserByUsername("nonexistent"))
-            .isInstanceOf(UsernameNotFoundException.class)
-            .hasMessage("User not found");
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessage("User not found");
 
         verify(userRepository).findByUsername("nonexistent");
     }
@@ -76,8 +79,8 @@ class UserServiceTest {
     @Test
     void loadUserByUsername_ShouldHandleNullUsername() {
         assertThatThrownBy(() -> userService.loadUserByUsername(null))
-            .isInstanceOf(UsernameNotFoundException.class)
-            .hasMessage("User not found");
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessage("User not found");
 
         verify(userRepository).findByUsername(null);
     }
@@ -97,8 +100,8 @@ class UserServiceTest {
         when(userRepository.findByUsername("wrong")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.findByUsername("wrong"))
-            .isInstanceOf(UsernameNotFoundException.class)
-            .hasMessage("User not found");
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessage("User not found");
 
         verify(userRepository).findByUsername("wrong");
     }
@@ -109,9 +112,50 @@ class UserServiceTest {
         when(mockJwt.getSubject()).thenReturn(null);
 
         assertThatThrownBy(() -> userService.getUserFromJwt(mockJwt))
-            .isInstanceOf(UsernameNotFoundException.class)
-            .hasMessage("User not found");
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessage("User not found");
 
         verify(userRepository).findByUsername(null);
+    }
+
+    @Test
+    void setDayOff_ShouldAddDayOff() {
+        String username = "testuser";
+        LocalDate dayOff = LocalDate.now().with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
+
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(testUser));
+
+        userService.setDayOff(username, dayOff);
+
+        assertThat(testUser.getDaysOff()).contains(dayOff);
+        verify(userRepository).save(testUser);
+    }
+
+    @Test
+    void resetDaysOffPerWeek_ShouldResetDaysOffPerWeek() {
+        User user = new User();
+        user.setDaysOffPerWeek((byte) 0);
+        user.getDaysOff().add(LocalDate.now());
+
+        when(userRepository.findAll()).thenReturn(List.of(user));
+
+        userService.resetDaysOffPerWeek();
+
+        assertThat(user.getDaysOffPerWeek()).isEqualTo((byte) 2);
+        assertThat(user.getDaysOff()).isEmpty();
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void removeDayOff_ShouldSucceed_WhenDayOffIsToday() {
+        User user = new User();
+        user.getDaysOff().add(LocalDate.now());
+
+        when(userRepository.findUsersWithDayOffToday()).thenReturn(List.of(user));
+
+        userService.revokeDayOff();
+
+        assertThat(user.getDaysOff()).doesNotContain(LocalDate.now());
+        verify(userRepository).save(user);
     }
 }

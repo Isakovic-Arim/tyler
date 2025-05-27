@@ -15,10 +15,7 @@ import tyler.server.common.Role;
 import tyler.server.validation.constraints.currentweek.CurrentWeek;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Entity
 @Table(
@@ -79,7 +76,7 @@ public class User implements UserDetails {
     @Column(name = "day_of_week")
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    private Set<@CurrentWeek LocalDate> daysOff = Set.of();
+    private Set<@CurrentWeek LocalDate> daysOff = new HashSet<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default

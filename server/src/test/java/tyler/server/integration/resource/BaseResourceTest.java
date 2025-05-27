@@ -1,4 +1,4 @@
-package tyler.server.integration.resource.task;
+package tyler.server.integration.resource;
 
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
@@ -21,7 +21,7 @@ import static io.restassured.RestAssured.given;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class BaseTaskResourceTest {
+public abstract class BaseResourceTest {
     protected static final String TASKS_ENDPOINT = "/tasks";
     protected static final String AUTH_ENDPOINT = "/auth";
 
@@ -59,4 +59,4 @@ public abstract class BaseTaskResourceTest {
                 .contentType(ContentType.JSON)
                 .cookies(cookies);
     }
-} 
+}

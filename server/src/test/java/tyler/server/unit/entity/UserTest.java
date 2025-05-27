@@ -109,12 +109,8 @@ class UserTest {
     }
 
     @Test
-    void validate_UserTakesDaysOffOnSunday_ShouldSucceed() {
-        LocalDate now = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
-        LocalDate monday = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
-        LocalDate wednesday = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY));
-        user.setDaysOff(Set.of(monday, wednesday));
-
+    void validate_UserTakesDaysOffToday_ShouldSucceed() {
+        user.setDaysOff(Set.of(LocalDate.now()));
         Set<ConstraintViolation<User>> violations = validator.validate(user);
         assertTrue(violations.isEmpty());
     }

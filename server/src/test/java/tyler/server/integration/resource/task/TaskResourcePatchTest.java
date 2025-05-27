@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
+import tyler.server.integration.resource.BaseResourceTest;
 import tyler.server.repository.PriorityRepository;
 import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.TaskRepository;
@@ -34,7 +35,7 @@ import java.util.Set;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
-class TaskResourcePatchTest extends BaseTaskResourceTest {
+class TaskResourcePatchTest extends BaseResourceTest {
 
     @Autowired
     private PriorityRepository priorityRepository;

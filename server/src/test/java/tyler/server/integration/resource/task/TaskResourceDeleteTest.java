@@ -20,17 +20,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
+import tyler.server.integration.resource.BaseResourceTest;
 import tyler.server.repository.PriorityRepository;
 import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
 
-class TaskResourceDeleteTest extends BaseTaskResourceTest {
+class TaskResourceDeleteTest extends BaseResourceTest {
 
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
