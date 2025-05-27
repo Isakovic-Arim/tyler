@@ -12,8 +12,8 @@ import lombok.Builder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import tyler.server.common.Role;
+import tyler.server.validation.constraints.currentweek.CurrentWeek;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,15 +70,16 @@ public class User implements UserDetails {
     private LocalDate lastAchievedDate;
 
     @Column(name = "days_off_per_week", nullable = false)
-    @Max(value = 7, message = "Days off per week cannot exceed 7")
-    private byte daysOffPerWeek;
+    @Max(value = 2, message = "Days off per week cannot exceed 2")
+    @Builder.Default
+    private byte daysOffPerWeek = 2;
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "days_off", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "day_of_week")
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    private Set<DayOfWeek> daysOff = Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
+    private Set<@CurrentWeek LocalDate> daysOff = Set.of();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default

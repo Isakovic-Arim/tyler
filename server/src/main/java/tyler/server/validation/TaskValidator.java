@@ -8,11 +8,6 @@ import tyler.server.exception.BusinessValidationException;
 @Component
 public class TaskValidator {
     public void validate(Task task) {
-        if (task.getDueDate() != null && task.getDeadline() != null
-                && task.getDueDate().isAfter(task.getDeadline())) {
-            throw new ConstraintViolationException("Due date cannot be after deadline", null);
-        }
-
         if (task.getParent() != null) {
             if (task.getDueDate() != null && task.getParent().getDueDate() != null &&
                     task.getDueDate().isAfter(task.getParent().getDueDate())) {

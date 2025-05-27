@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
-import tyler.server.validation.constraints.ConsistentTaskDates;
+import tyler.server.validation.constraints.consistentdates.ConsistentTaskDates;
 
 import java.time.LocalDate;
 import java.util.ArrayList;

@@ -1,7 +1,7 @@
 package tyler.server.dto.task;
 
 import jakarta.validation.constraints.*;
-import tyler.server.validation.constraints.ConsistentTaskDates;
+import tyler.server.validation.constraints.consistentdates.ConsistentTaskDates;
 
 import java.time.LocalDate;
 

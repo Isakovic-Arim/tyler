@@ -8,17 +8,15 @@ import tyler.server.entity.User;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class ProgressService {
-    @Transactional
     public void handleTaskCompletion(Task task) {
         User user = task.getUser();
         if (user == null) return;
 
         // Don't add XP on off days, but still need to check streak
-        boolean isOffDay = user.getDaysOff().contains(LocalDate.now().getDayOfWeek());
+        boolean isOffDay = user.getDaysOff().contains(LocalDate.now());
         if (!isOffDay) {
             user.setCurrentXp(user.getCurrentXp() + task.getPriority().getXp());
         }
@@ -44,12 +42,10 @@ public class ProgressService {
         LocalDate today = LocalDate.now();
         List<Task> tasksToRelocate = user.getTasks().stream()
                 .filter(task -> !task.isDone() && task.getDueDate() != null &&
-                        (user.getDaysOff().contains(task.getDueDate().getDayOfWeek()) ||
-                         user.getDaysOff().contains(today.getDayOfWeek())))
-                .collect(Collectors.toList());
-
-        // Sort tasks by deadline to ensure we handle the most urgent tasks first
-        tasksToRelocate.sort(Comparator.comparing(Task::getDeadline));
+                        (user.getDaysOff().contains(task.getDueDate()) ||
+                                user.getDaysOff().contains(today)))
+                .sorted(Comparator.comparing(Task::getDeadline))
+                .toList();
 
         for (Task task : tasksToRelocate) {
             LocalDate newDueDate = findNextAvailableDate(user, task.getDueDate());
@@ -61,7 +57,7 @@ public class ProgressService {
 
     private LocalDate findNextAvailableDate(User user, LocalDate currentDate) {
         LocalDate nextDate = currentDate.plusDays(1);
-        while (user.getDaysOff().contains(nextDate.getDayOfWeek())) {
+        while (user.getDaysOff().contains(nextDate)) {
             nextDate = nextDate.plusDays(1);
         }
         return nextDate;
@@ -84,7 +80,7 @@ public class ProgressService {
         LocalDate checkDate = lastAchieved.plusDays(1);
 
         while (checkDate.isBefore(today)) {
-            if (!user.getDaysOff().contains(checkDate.getDayOfWeek())) {
+            if (!user.getDaysOff().contains(checkDate)) {
                 allDaysWereOffDays = false;
                 break;
             }

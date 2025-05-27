@@ -12,10 +12,10 @@ import tyler.server.entity.User;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
-
 
 class UserTest {
     private static Validator validator;
@@ -31,21 +31,21 @@ class UserTest {
     @BeforeEach
     void setUp() {
         user = User.builder()
-            .id(1L)
-            .username("testuser")
-            .passwordHash("hashedPassword123")
-            .currentXp(100)
-            .dailyXpQuota(50)
-            .currentStreak(3)
-            .lastAchievedDate(LocalDate.now())
-            .daysOffPerWeek((byte) 2)
-            .daysOff(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
-            .build();
+                .id(1L)
+                .username("testuser")
+                .passwordHash("hashedPassword123")
+                .currentXp(100)
+                .dailyXpQuota(50)
+                .currentStreak(3)
+                .lastAchievedDate(LocalDate.now())
+                .daysOffPerWeek((byte) 2)
+                .daysOff(Set.of())
+                .build();
 
         task = Task.builder()
-            .id(1L)
-            .name("Test Task")
-            .build();
+                .id(1L)
+                .name("Test Task")
+                .build();
     }
 
     @Test
@@ -109,9 +109,20 @@ class UserTest {
     }
 
     @Test
+    void validate_UserTakesDaysOffOnSunday_ShouldSucceed() {
+        LocalDate now = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+        LocalDate monday = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY));
+        LocalDate wednesday = now.with(TemporalAdjusters.nextOrSame(DayOfWeek.WEDNESDAY));
+        user.setDaysOff(Set.of(monday, wednesday));
+
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
     void addTask_ShouldAddTaskAndSetUser() {
         user.addTask(task);
-        
+
         assertTrue(user.getTasks().contains(task));
         assertEquals(user, task.getUser());
     }
@@ -120,22 +131,41 @@ class UserTest {
     void removeTask_ShouldRemoveTaskAndClearUser() {
         user.addTask(task);
         user.removeTask(task);
-        
+
         assertFalse(user.getTasks().contains(task));
         assertNull(task.getUser());
     }
 
     @Test
+    void validate_ValidDaysOff_ShouldPass() {
+        LocalDate now = LocalDate.now();
+        user.setDaysOff(Set.of(now.plusDays(1), now.plusDays(2)));
+
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    void validate_DaysOffOutsideCurrentWeek_ShouldFail() {
+        LocalDate nextWeek = LocalDate.now().plusDays(7);
+        LocalDate friday = nextWeek.with(TemporalAdjusters.next(DayOfWeek.FRIDAY));
+        user.setDaysOff(Set.of(friday, friday.plusDays(1)));
+
+        Set<ConstraintViolation<User>> violations = validator.validate(user);
+        assertFalse(violations.isEmpty());
+    }
+
+    @Test
     void equals_ShouldWorkCorrectly() {
         User sameUser = User.builder()
-            .id(1L)
-            .username("different")
-            .build();
-        
+                .id(1L)
+                .username("different")
+                .build();
+
         User differentUser = User.builder()
-            .id(2L)
-            .username("testuser")
-            .build();
+                .id(2L)
+                .username("testuser")
+                .build();
 
         assertEquals(user, sameUser);
         assertNotEquals(user, differentUser);

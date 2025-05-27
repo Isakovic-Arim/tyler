@@ -67,7 +67,7 @@ class ProgressServiceTest {
     @Test
     void handleTaskCompletion_ShouldNotModifyUser_WhenUserIsNull() {
         Task taskWithoutUser = task.toBuilder().user(null).build();
-        
+
         progressService.handleTaskCompletion(taskWithoutUser);
 
         assertThat(user.getCurrentXp()).isZero();
@@ -78,7 +78,7 @@ class ProgressServiceTest {
     @Test
     void handleTaskCompletion_ShouldIncrementStreak_WhenDailyQuotaReached() {
         user.setCurrentXp(90); // Just below daily quota
-        
+
         progressService.handleTaskCompletion(task);
 
         assertThat(user.getCurrentXp()).isEqualTo(0); // Reset after quota reached
@@ -90,7 +90,7 @@ class ProgressServiceTest {
     void handleTaskCompletion_ShouldResetStreak_WhenQuotaReachedAfterGap() {
         user.setCurrentXp(90);
         user.setLastAchievedDate(today.minusDays(2)); // Gap in streak
-        
+
         progressService.handleTaskCompletion(task);
 
         assertThat(user.getCurrentXp()).isEqualTo(0);
@@ -102,7 +102,7 @@ class ProgressServiceTest {
     void handleTaskCompletion_ShouldNotIncrementStreak_WhenQuotaReachedSameDay() {
         user.setCurrentXp(90);
         user.setLastAchievedDate(today);
-        
+
         progressService.handleTaskCompletion(task);
 
         assertThat(user.getCurrentXp()).isEqualTo(100);
@@ -115,7 +115,7 @@ class ProgressServiceTest {
         user.setCurrentXp(90);
         user.setLastAchievedDate(today.minusDays(1));
         user.setCurrentStreak(5);
-        
+
         progressService.handleTaskCompletion(task);
 
         assertThat(user.getCurrentXp()).isEqualTo(0);
@@ -125,8 +125,8 @@ class ProgressServiceTest {
 
     @Test
     void handleTaskCompletion_ShouldSkipXpOnOffDay() {
-        user.setDaysOff(Set.of(today.getDayOfWeek()));
-        
+        user.setDaysOff(Set.of(today));
+
         progressService.handleTaskCompletion(task);
 
         assertThat(user.getCurrentXp()).isZero();
@@ -136,8 +136,8 @@ class ProgressServiceTest {
 
     @Test
     void handleTaskCompletion_ShouldAddXpOnNonOffDay() {
-        user.setDaysOff(Set.of(today.plusDays(1).getDayOfWeek())); // Set tomorrow as off day
-        
+        user.setDaysOff(Set.of(today.plusDays(1))); // Set tomorrow as off day
+
         progressService.handleTaskCompletion(task);
 
         assertThat(user.getCurrentXp()).isEqualTo(10);
@@ -149,7 +149,7 @@ class ProgressServiceTest {
     void relocateTasksForOffDays_ShouldRelocateTasksOnOffDays() {
         LocalDate tomorrow = today.plusDays(1);
         LocalDate dayAfterTomorrow = today.plusDays(2);
-        
+
         Task task1 = Task.builder()
                 .id(2L)
                 .name("Task 1")
@@ -170,9 +170,9 @@ class ProgressServiceTest {
 
         user.addTask(task1);
         user.addTask(task2);
-        
+
         // Set tomorrow as off day
-        user.setDaysOff(Set.of(tomorrow.getDayOfWeek()));
+        user.setDaysOff(Set.of(tomorrow));
 
         progressService.relocateTasksForOffDays(user);
 
@@ -185,7 +185,7 @@ class ProgressServiceTest {
     @Test
     void relocateTasksForOffDays_ShouldNotRelocateTasksBeyondDeadline() {
         LocalDate tomorrow = today.plusDays(1);
-        
+
         Task task = Task.builder()
                 .id(2L)
                 .name("Task with tight deadline")
@@ -196,9 +196,9 @@ class ProgressServiceTest {
                 .build();
 
         user.addTask(task);
-        
+
         // Set tomorrow as off day
-        user.setDaysOff(Set.of(tomorrow.getDayOfWeek()));
+        user.setDaysOff(Set.of(tomorrow));
 
         progressService.relocateTasksForOffDays(user);
 
@@ -211,7 +211,7 @@ class ProgressServiceTest {
         LocalDate tomorrow = today.plusDays(1);
         LocalDate dayAfterTomorrow = today.plusDays(2);
         LocalDate threeDaysLater = today.plusDays(3);
-        
+
         Task task = Task.builder()
                 .id(2L)
                 .name("Task spanning multiple off days")
@@ -222,9 +222,12 @@ class ProgressServiceTest {
                 .build();
 
         user.addTask(task);
-        
+
         // Set tomorrow and day after tomorrow as off days
-        user.setDaysOff(Set.of(tomorrow.getDayOfWeek(), dayAfterTomorrow.getDayOfWeek()));
+        user.setDaysOff(Set.of(
+                tomorrow,
+                tomorrow.plusDays(1)
+        ));
 
         progressService.relocateTasksForOffDays(user);
 
@@ -235,7 +238,7 @@ class ProgressServiceTest {
     @Test
     void relocateTasksForOffDays_ShouldNotRelocateCompletedTasks() {
         LocalDate tomorrow = today.plusDays(1);
-        
+
         Task completedTask = Task.builder()
                 .id(2L)
                 .name("Completed Task")
@@ -247,9 +250,9 @@ class ProgressServiceTest {
                 .build();
 
         user.addTask(completedTask);
-        
+
         // Set tomorrow as off day
-        user.setDaysOff(Set.of(tomorrow.getDayOfWeek()));
+        user.setDaysOff(Set.of(tomorrow));
 
         progressService.relocateTasksForOffDays(user);
 

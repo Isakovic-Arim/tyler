@@ -1,6 +1,6 @@
 package tyler.server.dto.user;
 
-import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.Set;
 
 public record UserProfileDto(
@@ -8,5 +8,5 @@ public record UserProfileDto(
         int currentXp,
         int dailyQuota,
         int currentStreak,
-        Set<DayOfWeek> daysOff
+        Set<LocalDate> daysOff
 ) {}

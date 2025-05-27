@@ -1,4 +1,4 @@
-package tyler.server.validation.constraints;
+package tyler.server.validation.constraints.consistentdates;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.acls.domain.BasePermission;
 import org.springframework.security.acls.domain.ObjectIdentityImpl;
@@ -13,6 +14,7 @@ import org.springframework.security.acls.model.MutableAcl;
 import org.springframework.security.acls.model.ObjectIdentity;
 import org.springframework.security.acls.model.Sid;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallbackWithoutResult;
@@ -25,8 +27,7 @@ import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
+import java.time.*;
 import java.util.Map;
 import java.util.Set;
 
@@ -49,6 +50,9 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    @MockitoBean
+    private Clock clock;
+
     private final Priority priority = Priority.builder()
             .name("HIGH")
             .xp((byte) 3)
@@ -68,7 +72,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
                 .dailyXpQuota(0)
                 .currentStreak(0)
                 .daysOffPerWeek((byte) 2)
-                .daysOff(Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY))
+                .daysOff(Set.of())
                 .build();
         userRepository.save(user);
 
@@ -78,6 +82,7 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
     @AfterEach
     void tearDown() {
         user.getTasks().clear();
+        user.setDaysOff(Set.of());
         userRepository.save(user);
         taskRepository.deleteAll();
     }
@@ -184,12 +189,19 @@ class TaskResourcePatchTest extends BaseTaskResourceTest {
     @Test
     @WithMockUser(username = "user")
     void markTaskAsDone_userHasDayOffAndMissesDailyQuota_keepsStreak() {
+        LocalDate fixedDate = LocalDate.now().minusDays(3);
+        Instant fixedInstant = fixedDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Mockito.when(clock.instant()).thenReturn(fixedInstant);
+        Mockito.when(clock.getZone()).thenReturn(ZoneId.systemDefault());
+
         user.setCurrentStreak(5);
         user.setDailyXpQuota(5);
-        user.setDaysOff(Set.of(LocalDate.now().minusDays(1).getDayOfWeek(),
-                LocalDate.now().minusDays(2).getDayOfWeek()));
+        user.setDaysOff(Set.of(
+                LocalDate.now(clock).plusDays(1),
+                LocalDate.now(clock).plusDays(2)
+        ));
         user.setDaysOffPerWeek((byte) 2);
-        user.setLastAchievedDate(LocalDate.now().minusDays(3));
+        user.setLastAchievedDate(LocalDate.now(clock).minusDays(3));
         user.setCurrentXp(1);
         user = userRepository.save(user);
 
