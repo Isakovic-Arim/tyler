@@ -39,7 +39,7 @@ export default function TaskUpdatePopover({task, onClose, onSave}: Props) {
                 description: task.description,
                 deadline: task.deadline,
                 dueDate: task.dueDate,
-                priorityId: prioritiesData.find((p) => p.xp === task.xp)?.id ?? 0,
+                priorityId: prioritiesData.find((p) => p.xp === task.remainingXp)?.id ?? 0,
             })
         }
 

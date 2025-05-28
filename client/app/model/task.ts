@@ -6,7 +6,7 @@ export interface TaskResponseDto {
     description: string;
     dueDate: string;
     deadline: string;
-    xp: number;
+    remainingXp: number;
     done: boolean;
 }
 

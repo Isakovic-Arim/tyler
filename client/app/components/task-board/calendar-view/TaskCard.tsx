@@ -49,7 +49,7 @@ export default function TaskCard({
                     {task.subtasks > 0 && (
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">{task.subtasks}</span>
                     )}
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">{task.xp} XP</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">{task.remainingXp} XP</span>
                     <button
                         onClick={(e) => {
                             e.stopPropagation()
