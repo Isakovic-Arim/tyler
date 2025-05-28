@@ -304,6 +304,7 @@ class TaskResourcePostTest extends BaseResourceTest {
                 .deadline(LocalDate.now().plusDays(10))
                 .done(false)
                 .priority(parentPriority)
+                .remainingXp(parentPriority.getXp())
                 .user(user)
                 .build();
         user.addTask(parent);
@@ -344,6 +345,7 @@ class TaskResourcePostTest extends BaseResourceTest {
                 .description(null)
                 .deadline(LocalDate.now().plusDays(10))
                 .priority(priority)
+                .remainingXp(priority.getXp())
                 .user(user)
                 .done(false)
                 .build();

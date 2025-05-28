@@ -57,6 +57,7 @@ public class User implements UserDetails {
 
     @Column(name = "daily_xp_quota", nullable = false)
     @Min(value = 0, message = "Daily XP quota cannot be negative")
+    @Builder.Default
     private int dailyXpQuota = 5;
 
     @Column(name = "current_streak", nullable = false)

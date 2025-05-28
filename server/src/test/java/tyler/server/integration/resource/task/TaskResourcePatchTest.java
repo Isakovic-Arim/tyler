@@ -4,7 +4,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.acls.domain.BasePermission;
 import org.springframework.security.acls.domain.ObjectIdentityImpl;
@@ -14,7 +13,6 @@ import org.springframework.security.acls.model.MutableAcl;
 import org.springframework.security.acls.model.ObjectIdentity;
 import org.springframework.security.acls.model.Sid;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallbackWithoutResult;
@@ -29,6 +27,7 @@ import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
 import java.time.*;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -50,9 +49,6 @@ class TaskResourcePatchTest extends BaseResourceTest {
     private JdbcMutableAclService aclService;
     @Autowired
     private PlatformTransactionManager transactionManager;
-
-    @MockitoBean
-    private Clock clock;
 
     private final Priority priority = Priority.builder()
             .name("HIGH")
@@ -83,7 +79,7 @@ class TaskResourcePatchTest extends BaseResourceTest {
     @AfterEach
     void tearDown() {
         user.getTasks().clear();
-        user.setDaysOff(Set.of());
+        user.setDaysOff(new HashSet<>());
         userRepository.save(user);
         taskRepository.deleteAll();
     }
@@ -121,7 +117,7 @@ class TaskResourcePatchTest extends BaseResourceTest {
                 .statusCode(200);
         if (name != null) request.body("name", equalTo(name));
         if (description != null) request.body("description", equalTo(description));
-        if (xp != null) request.body("xp", equalTo(xp.intValue()));
+        if (xp != null) request.body("remainingXp", equalTo(xp.intValue()));
         if (done != null) request.body("done", equalTo(done));
     }
 
@@ -190,19 +186,14 @@ class TaskResourcePatchTest extends BaseResourceTest {
     @Test
     @WithMockUser(username = "user")
     void markTaskAsDone_userHasDayOffAndMissesDailyQuota_keepsStreak() {
-        LocalDate fixedDate = LocalDate.now().minusDays(3);
-        Instant fixedInstant = fixedDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
-        Mockito.when(clock.instant()).thenReturn(fixedInstant);
-        Mockito.when(clock.getZone()).thenReturn(ZoneId.systemDefault());
-
         user.setCurrentStreak(5);
         user.setDailyXpQuota(5);
         user.setDaysOff(Set.of(
-                LocalDate.now(clock).plusDays(1),
-                LocalDate.now(clock).plusDays(2)
+                LocalDate.now().plusDays(1),
+                LocalDate.now().plusDays(2)
         ));
         user.setDaysOffPerWeek((byte) 2);
-        user.setLastAchievedDate(LocalDate.now(clock).minusDays(3));
+        user.setLastAchievedDate(LocalDate.now().minusDays(3));
         user.setCurrentXp(1);
         user = userRepository.save(user);
 
@@ -229,5 +220,44 @@ class TaskResourcePatchTest extends BaseResourceTest {
         assertThat(updatedUser.getCurrentStreak()).isEqualTo(6);
         assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
         assertThat(updatedUser.getCurrentXp()).isEqualTo(1);
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void markTaskAsDone_completesSubtask_subtractXpOfSubtaskFromParentTask() {
+        Task parent = Task.builder()
+                .name("Parent Task")
+                .dueDate(null)
+                .deadline(LocalDate.now().plusDays(1))
+                .done(false)
+                .priority(priority)
+                .remainingXp(priority.getXp())
+                .parent(null)
+                .user(user)
+                .build();
+        user.addTask(parent);
+        parent = taskRepository.save(parent);
+        createAclForTask(parent);
+
+        Task child = Task.builder()
+                .name("Child Task")
+                .dueDate(null)
+                .deadline(LocalDate.now().plusDays(1))
+                .done(false)
+                .priority(priority)
+                .remainingXp(priority.getXp())
+                .parent(null)
+                .user(user)
+                .build();
+        user.addTask(child);
+        child = taskRepository.save(child);
+        createAclForTask(child);
+
+        parent.addSubtask(child);
+        taskRepository.save(parent);
+
+        givenCookies(cookies).when().patch(TASKS_ENDPOINT + "/{id}/done", child.getId()).then().statusCode(200);
+        verifyTask(child.getId(), null, null, null, true);
+        verifyTask(parent.getId(), null, null, null, false);
     }
 }

@@ -144,7 +144,7 @@ class TaskResourceGetTest extends BaseResourceTest {
         result.body("id", equalTo(task.getId().intValue()))
                 .body("name", equalTo(task.getName()))
                 .body("description", equalTo(task.getDescription()))
-                .body("xp", equalTo(Conversions.intValue(task.getPriority().getXp())))
+                .body("remainingXp", equalTo(Conversions.intValue(task.getPriority().getXp())))
                 .body("done", equalTo(task.isDone()));
     }
 

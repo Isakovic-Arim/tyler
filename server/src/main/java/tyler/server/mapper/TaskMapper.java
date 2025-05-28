@@ -22,7 +22,7 @@ public abstract class TaskMapper {
 
     @Mapping(target = "subtasks", expression = "java(task.getSubtasks().size())")
     @Mapping(target = "dueDate", defaultExpression = "java(\"\")")
-    @Mapping(target = "xp", source = "priority.xp")
+    @Mapping(target = "remainingXp", source = "priority.xp")
     @Mapping(target = "description")
     @Mapping(target = "name")
     @Mapping(target = "id", defaultExpression = "java(0L)")

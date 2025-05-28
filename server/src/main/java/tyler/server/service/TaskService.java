@@ -65,6 +65,7 @@ public class TaskService {
         Task task = taskMapper.toTask(request);
 
         setTaskPriority(task, request.priorityId());
+        task.setRemainingXp(task.getPriority().getXp());
         user.addTask(task);
 
         if (request.parentId() != null) {
@@ -83,11 +84,19 @@ public class TaskService {
     public void updateTask(Long id, @Valid TaskRequestDTO request) {
         Task existing = findTaskById(id);
 
+        byte oldRemainingXp = existing.getRemainingXp();
+        byte oldPriorityXp = existing.getPriority().getXp();
+
         existing.setName(request.name());
         existing.setDescription(request.description());
         existing.setDueDate(request.dueDate());
         existing.setDeadline(request.deadline());
+
         setTaskPriority(existing, request.priorityId());
+
+        if (oldRemainingXp == oldPriorityXp) {
+            existing.setRemainingXp(existing.getPriority().getXp());
+        }
 
         if (request.parentId() != null) {
             linkToParent(existing, request.parentId());
@@ -100,6 +109,11 @@ public class TaskService {
     @Transactional
     public void markTaskAsDone(Long id) {
         Task task = findTaskById(id);
+        Task parent = task.getParent();
+
+        if (parent != null) {
+            parent.setRemainingXp((byte) (parent.getRemainingXp() - task.getPriority().getXp()));
+        }
 
         task.setDone(true);
         progressService.handleTaskCompletion(task);

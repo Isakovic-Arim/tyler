@@ -157,6 +157,37 @@ class TaskServiceTest {
         assertThat(taskService.saveTask(testUser, request)).isEqualTo(2L);
     }
 
+    @WithMockUser(username = "testuser")
+    @Test
+    void saveTask_subtaskExceedsParentRemainingXp_shouldThrow() {
+        Task parent = Task.builder()
+                .id(1L)
+                .priority(Priority.builder().id(1L).xp((byte)5).build())
+                .remainingXp((byte)3)
+                .done(false)
+                .user(testUser)
+                .build();
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(parent));
+
+        TaskRequestDTO request = new TaskRequestDTO(
+                1L, "Child Task", "desc", null, null, 2L
+        );
+        Task subtask = Task.builder()
+                .priority(Priority.builder().id(2L).xp((byte)4).build())
+                .done(false)
+                .user(testUser)
+                .build();
+        when(taskMapper.toTask(request)).thenReturn(subtask);
+        when(priorityRepository.findById(2L)).thenReturn(Optional.of(subtask.getPriority()));
+
+        doThrow(new ConstraintViolationException("cannot exceed parent", null))
+                .when(taskValidator).validate(subtask);
+
+        assertThatThrownBy(() -> taskService.saveTask(testUser, request))
+                .isInstanceOf(ConstraintViolationException.class)
+                .hasMessageContaining("cannot exceed parent");
+    }
+
     @Test
     void saveTask_ShouldFailIfDueDateAfterDeadline() {
         var invalidRequest = new TaskRequestDTO(null, "Invalid", "desc",

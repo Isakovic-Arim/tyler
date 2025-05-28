@@ -40,6 +40,10 @@ public class Task {
     @Valid
     private Priority priority;
 
+    @NotNull(message = "Remaining xp must be tracked")
+    @Min(value = 0, message = "Remaining xp cannot reach below zero")
+    private byte remainingXp;
+
     @NotBlank(message = "Task name cannot be blank")
     @Size(min = 3, max = MAX_TASK_NAME_LENGTH, message = "Task name must be between 3 and " + MAX_TASK_NAME_LENGTH + " characters")
     @Column(name = "name", nullable = false, length = MAX_TASK_NAME_LENGTH)

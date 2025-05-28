@@ -50,7 +50,7 @@ class TaskResourcePutTest extends BaseResourceTest {
 
     @Autowired
     private EntityManagerFactory entityManagerFactory;
-    
+
     @Autowired
     private JdbcMutableAclService aclService;
     @Autowired
@@ -63,7 +63,7 @@ class TaskResourcePutTest extends BaseResourceTest {
 
     private User user;
     private Map<String, String> cookies;
-    
+
     @BeforeAll
     void setUp() {
         priorityRepository.save(priority);
@@ -81,14 +81,14 @@ class TaskResourcePutTest extends BaseResourceTest {
 
         cookies = getAuthCookies(user.getUsername(), "test");
     }
-    
+
     @AfterEach
     void tearDown() {
         user.getTasks().clear();
         userRepository.save(user);
         taskRepository.deleteAll();
     }
-    
+
     @AfterAll
     void cleanUp() {
         refreshTokenRepository.deleteAll();
@@ -141,7 +141,7 @@ class TaskResourcePutTest extends BaseResourceTest {
         givenCookies(cookies).when().get(TASKS_ENDPOINT + "/{id}", task.getId()).then().statusCode(200)
                 .body("name", equalTo("Updated Task"))
                 .body("description", equalTo("Updated description"))
-                .body("xp", equalTo(Conversions.intValue(5)))
+                .body("remainingXp", equalTo(Conversions.intValue(5)))
                 .body("deadline", equalTo(LocalDate.now().plusDays(5).toString()))
                 .body("done", equalTo(false));
     }
@@ -204,8 +204,8 @@ class TaskResourcePutTest extends BaseResourceTest {
                 null, LocalDate.now().plusDays(2), priority.getId());
 
         givenCookies(cookies).body(update)
-            .when().put(TASKS_ENDPOINT + "/{id}", parent.getId())
-            .then().statusCode(200);
+                .when().put(TASKS_ENDPOINT + "/{id}", parent.getId())
+                .then().statusCode(200);
 
         Task updatedParent = entityManagerFactory.createEntityManager().createQuery("SELECT t FROM Task t JOIN t.subtasks WHERE t.id = :id", Task.class)
                 .setParameter("id", parent.getId())
@@ -237,6 +237,155 @@ class TaskResourcePutTest extends BaseResourceTest {
         givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", task.getId())
                 .then().statusCode(400)
                 .body(containsString("Priority with ID 999 does not exist"));
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void putTask_parentPriorityXpIsSmallerThanChildrenPriorities_returnsBadRequest() {
+        Priority parentPriority = Priority.builder().name("PARENT").xp((byte) 5).build();
+        parentPriority = priorityRepository.save(parentPriority);
+
+        Priority childPriority = Priority.builder().name("CHILD").xp((byte) 3).build();
+        childPriority = priorityRepository.save(childPriority);
+
+        Task parent = Task.builder()
+                .name("Parent Task")
+                .deadline(LocalDate.now().plusDays(10))
+                .done(false)
+                .priority(parentPriority)
+                .remainingXp(parentPriority.getXp())
+                .user(user)
+                .build();
+        user.addTask(parent);
+        parent = taskRepository.save(parent);
+        createAclForTask(parent);
+
+        Task child = Task.builder()
+                .name("Child Task")
+                .deadline(LocalDate.now().plusDays(5))
+                .done(false)
+                .priority(childPriority)
+                .remainingXp(childPriority.getXp())
+                .user(user)
+                .build();
+        user.addTask(child);
+        child = taskRepository.save(child);
+        createAclForTask(child);
+
+        parent.addSubtask(child);
+        taskRepository.save(parent);
+
+        Priority updatedParentPriority = Priority.builder().name("UPDATED_PARENT").xp((byte) 2).build();
+        updatedParentPriority = priorityRepository.save(updatedParentPriority);
+
+        TaskRequestDTO update = new TaskRequestDTO(null, "Updated Parent Task", "Updated description",
+                null, LocalDate.now().plusDays(5), updatedParentPriority.getId());
+
+        givenCookies(cookies).body(update).when().put(TASKS_ENDPOINT + "/{id}", parent.getId())
+                .then().statusCode(422)
+                .body("detail", containsString("Task xp cannot be smaller than the xp of all the subtasks combined"));
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void putTask_taskHasRemainingXpAndChangesPriority_shouldKeepCurrentXp() {
+        Priority oldPriority = priorityRepository.save(
+                Priority.builder().name("OLD").xp((byte) 10).build()
+        );
+        Priority newPriority = priorityRepository.save(
+                Priority.builder().name("HIGHER").xp((byte) 15).build()
+        );
+
+        Task task = Task.builder()
+                .name("Example Task")
+                .deadline(LocalDate.now().plusDays(10))
+                .remainingXp((byte) 5)
+                .done(false)
+                .priority(oldPriority)
+                .user(user)
+                .build();
+        user.addTask(task);
+        task = taskRepository.save(task);
+        createAclForTask(task);
+
+        TaskRequestDTO update = new TaskRequestDTO(
+                null,
+                "Updated Example Task",
+                "Updated description",
+                null,
+                LocalDate.now().plusDays(5),
+                newPriority.getId()
+        );
+
+        givenCookies(cookies)
+                .body(update)
+                .when()
+                .put(TASKS_ENDPOINT + "/{id}", task.getId())
+                .then()
+                .statusCode(200);
+
+        Task updatedTask = taskRepository.findById(task.getId()).orElseThrow();
+        assertThat(updatedTask.getPriority().getXp()).isEqualTo(newPriority.getXp());
+        assertThat(updatedTask.getRemainingXp()).isEqualTo((byte) 5);
+    }
+
+    @Test
+    @WithMockUser
+    void putTask_parentTaskHasRemainingXpAndSubtaskChangesPriority_shouldNotExceedParentsCurrentXp() {
+        Priority parentPriority = priorityRepository.save(
+                Priority.builder().name("PARENT").xp((byte) 5).build()
+        );
+
+        Priority childPriority = priorityRepository.save(
+                Priority.builder().name("CHILD").xp((byte) 2).build()
+        );
+
+        Task parent = Task.builder()
+                .name("Parent Task")
+                .deadline(LocalDate.now().plusDays(10))
+                .done(false)
+                .priority(parentPriority)
+                .remainingXp((byte) 3)
+                .user(user)
+                .build();
+        user.addTask(parent);
+        parent = taskRepository.save(parent);
+        createAclForTask(parent);
+
+        Task child = Task.builder()
+                .name("Child Task")
+                .deadline(LocalDate.now().plusDays(5))
+                .done(false)
+                .priority(childPriority)
+                .remainingXp(childPriority.getXp())
+                .user(user)
+                .build();
+        user.addTask(child);
+        child = taskRepository.save(child);
+        createAclForTask(child);
+
+        parent.addSubtask(child);
+        parent = taskRepository.save(parent);
+
+        Priority tooHighPriority = priorityRepository.save(
+                Priority.builder().name("TOO_HIGH").xp((byte) 4).build()
+        );
+        TaskRequestDTO update = new TaskRequestDTO(
+                parent.getId(),
+                "Updated Child Task",
+                "Updated description",
+                null,
+                LocalDate.now().plusDays(5),
+                tooHighPriority.getId()
+        );
+
+        givenCookies(cookies)
+                .body(update)
+                .when()
+                .put(TASKS_ENDPOINT + "/{id}", child.getId())
+                .then()
+                .statusCode(422)
+                .body("detail", containsString("cannot exceed parent"));
     }
 
     @Test
@@ -375,6 +524,7 @@ class TaskResourcePutTest extends BaseResourceTest {
                 .deadline(LocalDate.now().plusDays(10))
                 .done(false)
                 .priority(parentPriority)
+                .remainingXp(parentPriority.getXp())
                 .user(user)
                 .build();
         user.addTask(parent);
@@ -386,6 +536,7 @@ class TaskResourcePutTest extends BaseResourceTest {
                 .deadline(LocalDate.now().plusDays(5))
                 .done(false)
                 .priority(childPriority)
+                .remainingXp(childPriority.getXp())
                 .user(user)
                 .build();
         user.addTask(child);

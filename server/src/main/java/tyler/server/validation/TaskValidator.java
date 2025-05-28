@@ -24,11 +24,19 @@ public class TaskValidator {
             }
 
             int subtaskXpSum = task.getParent().getSubtasks().stream()
-                    .mapToInt(subtask -> subtask.getPriority().getXp())
+                    .mapToInt(Task::getRemainingXp)
                     .sum();
 
-            if (task.getPriority() != null && subtaskXpSum > task.getParent().getPriority().getXp()) {
+            if (task.getPriority() != null && subtaskXpSum > task.getParent().getRemainingXp()) {
                 throw new BusinessValidationException("Subtask xp cannot exceed parent's xp");
+            }
+        }
+        if (!task.getSubtasks().isEmpty()) {
+            int subtasksXpSum = task.getSubtasks().stream()
+                    .mapToInt(Task::getRemainingXp)
+                    .sum();
+            if (task.getPriority() != null && task.getPriority().getXp() < subtasksXpSum) {
+                throw new BusinessValidationException("Task xp cannot be smaller than the xp of all the subtasks combined");
             }
         }
     }

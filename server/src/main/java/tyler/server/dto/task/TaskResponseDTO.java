@@ -8,6 +8,6 @@ public record TaskResponseDTO(
     String description,
     String dueDate,
     String deadline,
-    byte xp,
+    byte remainingXp,
     boolean done
 ) {}
