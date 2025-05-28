@@ -18,7 +18,7 @@ public class ProgressService {
         // Don't add XP on off days, but still need to check streak
         boolean isOffDay = user.getDaysOff().contains(LocalDate.now());
         if (!isOffDay) {
-            user.setCurrentXp(user.getCurrentXp() + task.getPriority().getXp());
+            user.setCurrentXp(user.getCurrentXp() + task.getRemainingXp());
         }
 
         if (isOffDay || user.getCurrentXp() >= user.getDailyXpQuota()) {
