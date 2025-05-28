@@ -129,6 +129,7 @@ class TaskResourceGetTest extends BaseResourceTest {
                 .deadline(LocalDate.now().plusDays(1))
                 .done(false)
                 .priority(priority)
+                .remainingXp(priority.getXp())
                 .user(user)
                 .build();
         user.addTask(task);
@@ -144,7 +145,7 @@ class TaskResourceGetTest extends BaseResourceTest {
         result.body("id", equalTo(task.getId().intValue()))
                 .body("name", equalTo(task.getName()))
                 .body("description", equalTo(task.getDescription()))
-                .body("remainingXp", equalTo(Conversions.intValue(task.getPriority().getXp())))
+                .body("remainingXp", equalTo(Conversions.intValue(task.getRemainingXp())))
                 .body("done", equalTo(task.isDone()));
     }
 

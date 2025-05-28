@@ -4,19 +4,27 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
+import tyler.server.repository.UserRepository;
 import tyler.server.service.ProgressService;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ProgressServiceTest {
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private ProgressService progressService;
@@ -41,7 +49,7 @@ class ProgressServiceTest {
                 .dailyXpQuota(100)
                 .currentStreak(0)
                 .lastAchievedDate(null)
-                .daysOff(Set.of())
+                .daysOff(new HashSet<>())
                 .build();
 
         task = Task.builder()
@@ -49,6 +57,7 @@ class ProgressServiceTest {
                 .name("Test Task")
                 .description("Test Description")
                 .priority(priority)
+                .remainingXp(priority.getXp())
                 .user(user)
                 .build();
 
@@ -258,5 +267,23 @@ class ProgressServiceTest {
 
         // Completed task should not be moved
         assertThat(completedTask.getDueDate()).isEqualTo(tomorrow);
+    }
+
+    @Test
+    void checkDailyStreaks_shouldResetStreakForEligibleUsers() {
+        User user1 = new User();
+        user1.setCurrentStreak(5);
+        User user2 = new User();
+        user2.setCurrentStreak(3);
+
+        when(userRepository.findUsersWhoAreNotOffAndMissedDailyQuotaToday())
+                .thenReturn(List.of(user1, user2));
+
+        progressService.checkDailyStreaks();
+
+        assertThat(user1.getCurrentStreak()).isZero();
+        assertThat(user2.getCurrentStreak()).isZero();
+        verify(userRepository).save(user1);
+        verify(userRepository).save(user2);
     }
 }

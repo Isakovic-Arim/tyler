@@ -14,4 +14,11 @@ public interface UserRepository extends CrudRepository<User, Long> {
     boolean existsByUsername(String username);
     @Query("SELECT u FROM User u JOIN FETCH u.daysOff d WHERE d = CURRENT_DATE")
     List<User> findUsersWithDayOffToday();
+    @Query(
+      "SELECT u " +
+      "FROM User u " +
+      "WHERE CURRENT_DATE NOT IN (SELECT d FROM u.daysOff d) " +
+      "AND u.lastAchievedDate < CURRENT_DATE"
+    )
+    List<User> findUsersWhoAreNotOffAndMissedDailyQuotaToday();
 }

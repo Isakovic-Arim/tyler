@@ -120,6 +120,7 @@ class TaskResourcePutTest extends BaseResourceTest {
                 .deadline(LocalDate.now().plusDays(1))
                 .done(false)
                 .priority(priority)
+                .remainingXp(priority.getXp())
                 .parent(null)
                 .user(user)
                 .build();

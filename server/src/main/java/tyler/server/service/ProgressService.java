@@ -1,9 +1,11 @@
 package tyler.server.service;
 
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
+import tyler.server.repository.UserRepository;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -11,6 +13,12 @@ import java.util.List;
 
 @Service
 public class ProgressService {
+    private final UserRepository userRepository;
+
+    public ProgressService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
     public void handleTaskCompletion(Task task) {
         User user = task.getUser();
         if (user == null) return;
@@ -92,5 +100,15 @@ public class ProgressService {
         } else {
             user.setCurrentStreak(1);
         }
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")
+    public void checkDailyStreaks() {
+        userRepository.findUsersWhoAreNotOffAndMissedDailyQuotaToday().forEach(
+                user -> {
+                    user.setCurrentStreak(0);
+                    userRepository.save(user);
+                }
+        );
     }
 }
