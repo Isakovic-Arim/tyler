@@ -116,12 +116,26 @@ public class ProgressService {
     }
 
     @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
     public void checkDailyStreaks() {
-        userRepository.findUsersWhoAreNotOffAndMissedDailyQuotaToday().forEach(
-                user -> {
-                    user.setCurrentStreak(0);
-                    userRepository.save(user);
-                }
-        );
+        // First, check and update streaks for users who have enough XP
+        userRepository.findUsersWithEnoughXpForDailyQuota().forEach(user -> {
+            LocalDate today = LocalDate.now();
+            LocalDate lastAchieved = user.getLastAchievedDate();
+
+            if (lastAchieved == null || !lastAchieved.equals(today)) {
+                updateStreak(user, today, lastAchieved);
+                user.setLastAchievedDate(today);
+                user.setCurrentXp(user.getCurrentXp() - user.getDailyXpQuota());
+            }
+        });
+
+        // Then, reset streaks for users who haven't met their quota
+        userRepository.findUsersWhoAreNotOffAndMissedDailyQuotaToday().forEach(user -> {
+            user.setCurrentStreak(0);
+        });
+
+        userRepository.saveAll(userRepository.findUsersWithEnoughXpForDailyQuota());
+        userRepository.saveAll(userRepository.findUsersWhoAreNotOffAndMissedDailyQuotaToday());
     }
 }

@@ -439,7 +439,123 @@ class ProgressServiceTest {
 
         assertThat(user1.getCurrentStreak()).isZero();
         assertThat(user2.getCurrentStreak()).isZero();
-        verify(userRepository).save(user1);
-        verify(userRepository).save(user2);
+        verify(userRepository).saveAll(List.of(user1, user2));
+    }
+
+    @Test
+    void handleTaskCompletion_ShouldCarryOverExcessXp() {
+        user.setCurrentXp(90);
+        user.setDailyXpQuota(100);
+
+        progressService.handleTaskCompletion(task);
+
+        // Should have 0 XP after reaching quota (100 - 100 = 0)
+        assertThat(user.getCurrentXp()).isEqualTo(0);
+        assertThat(user.getCurrentStreak()).isEqualTo(1);
+        assertThat(user.getLastAchievedDate()).isEqualTo(today);
+    }
+
+    @Test
+    void handleTaskCompletion_ShouldCarryOverExcessXpToNextDay() {
+        user.setCurrentXp(90);
+        user.setDailyXpQuota(50);
+
+        progressService.handleTaskCompletion(task);
+
+        // Should have 50 XP after reaching quota (90 + 10 - 50 = 50)
+        assertThat(user.getCurrentXp()).isEqualTo(50);
+        assertThat(user.getCurrentStreak()).isEqualTo(1);
+        assertThat(user.getLastAchievedDate()).isEqualTo(today);
+    }
+
+    @Test
+    void checkDailyStreaks_ShouldUpdateStreakForUsersWithEnoughXp() {
+        User user1 = User.builder()
+                .currentXp(100)
+                .dailyXpQuota(50)
+                .currentStreak(5)
+                .lastAchievedDate(today.minusDays(1))
+                .build();
+
+        User user2 = User.builder()
+                .currentXp(200)
+                .dailyXpQuota(100)
+                .currentStreak(3)
+                .daysOff(Set.of(today.minusDays(1), today))
+                .lastAchievedDate(today.minusDays(2))
+                .build();
+
+        when(userRepository.findUsersWithEnoughXpForDailyQuota())
+                .thenReturn(List.of(user1, user2));
+
+        progressService.checkDailyStreaks();
+
+        // Both users should have their streaks incremented
+        assertThat(user1.getCurrentStreak()).isEqualTo(6);
+        assertThat(user2.getCurrentStreak()).isEqualTo(4);
+        // XP should be deducted
+        assertThat(user1.getCurrentXp()).isEqualTo(50);
+        assertThat(user2.getCurrentXp()).isEqualTo(100);
+        // Last achieved date should be updated
+        assertThat(user1.getLastAchievedDate()).isEqualTo(today);
+        assertThat(user2.getLastAchievedDate()).isEqualTo(today);
+
+        verify(userRepository).saveAll(List.of(user1, user2));
+    }
+
+    @Test
+    void checkDailyStreaks_ShouldNotUpdateStreakForUsersWithInsufficientXp() {
+        User user1 = User.builder()
+                .currentXp(40)
+                .dailyXpQuota(50)
+                .currentStreak(5)
+                .lastAchievedDate(today.minusDays(1))
+                .build();
+
+        User user2 = User.builder()
+                .currentXp(90)
+                .dailyXpQuota(100)
+                .currentStreak(3)
+                .lastAchievedDate(today.minusDays(2))
+                .build();
+
+        when(userRepository.findUsersWithEnoughXpForDailyQuota())
+                .thenReturn(List.of());
+        when(userRepository.findUsersWhoAreNotOffAndMissedDailyQuotaToday())
+                .thenReturn(List.of(user1, user2));
+
+        progressService.checkDailyStreaks();
+
+        // Both users should have their streaks reset
+        assertThat(user1.getCurrentStreak()).isZero();
+        assertThat(user2.getCurrentStreak()).isZero();
+        // XP should remain unchanged
+        assertThat(user1.getCurrentXp()).isEqualTo(40);
+        assertThat(user2.getCurrentXp()).isEqualTo(90);
+
+        verify(userRepository).saveAll(List.of(user1, user2));
+    }
+
+    @Test
+    void checkDailyStreaks_ShouldNotUpdateStreakForUsersOnOffDay() {
+        User user = User.builder()
+                .currentXp(100)
+                .dailyXpQuota(50)
+                .currentStreak(5)
+                .lastAchievedDate(today.minusDays(1))
+                .daysOff(Set.of(today))
+                .build();
+
+        when(userRepository.findUsersWithEnoughXpForDailyQuota())
+                .thenReturn(List.of());
+        when(userRepository.findUsersWhoAreNotOffAndMissedDailyQuotaToday())
+                .thenReturn(List.of());
+
+        progressService.checkDailyStreaks();
+
+        // Streak and XP should remain unchanged
+        assertThat(user.getCurrentStreak()).isEqualTo(5);
+        assertThat(user.getCurrentXp()).isEqualTo(100);
+        assertThat(user.getLastAchievedDate()).isEqualTo(today.minusDays(1));
     }
 }

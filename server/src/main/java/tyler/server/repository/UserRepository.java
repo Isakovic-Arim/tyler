@@ -21,4 +21,12 @@ public interface UserRepository extends CrudRepository<User, Long> {
       "AND u.lastAchievedDate < CURRENT_DATE"
     )
     List<User> findUsersWhoAreNotOffAndMissedDailyQuotaToday();
+    @Query(
+      "SELECT u " +
+      "FROM User u " +
+      "WHERE CURRENT_DATE NOT IN (SELECT d FROM u.daysOff d) " +
+      "AND u.currentXp >= u.dailyXpQuota " +
+      "AND (u.lastAchievedDate IS NULL OR u.lastAchievedDate < CURRENT_DATE)"
+    )
+    List<User> findUsersWithEnoughXpForDailyQuota();
 }
