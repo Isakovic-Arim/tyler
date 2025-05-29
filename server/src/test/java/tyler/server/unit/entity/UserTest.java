@@ -73,15 +73,6 @@ class UserTest {
     }
 
     @Test
-    void validate_NegativeCurrentXp_ShouldFail() {
-        user.setCurrentXp(-1);
-        Set<ConstraintViolation<User>> violations = validator.validate(user);
-
-        assertEquals(1, violations.size());
-        assertEquals("currentXp", violations.iterator().next().getPropertyPath().toString());
-    }
-
-    @Test
     void validate_NegativeDailyXpQuota_ShouldFail() {
         user.setDailyXpQuota(-1);
         Set<ConstraintViolation<User>> violations = validator.validate(user);

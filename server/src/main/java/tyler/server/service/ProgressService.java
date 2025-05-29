@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
+import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 
 import java.time.LocalDate;
@@ -13,9 +14,11 @@ import java.util.List;
 
 @Service
 public class ProgressService {
+    private final TaskRepository taskRepository;
     private final UserRepository userRepository;
 
-    public ProgressService(UserRepository userRepository) {
+    public ProgressService(TaskRepository taskRepository, UserRepository userRepository) {
+        this.taskRepository = taskRepository;
         this.userRepository = userRepository;
     }
 
@@ -69,7 +72,7 @@ public class ProgressService {
             if (!subtask.isDone() && subtask.getDueDate() != null) {
                 LocalDate newDueDate = findNextAvailableDate(user, subtask.getDueDate());
                 if (newDueDate != null && !newDueDate.isAfter(subtask.getDeadline()) &&
-                    !newDueDate.isAfter(parentTask.getDueDate())) {
+                        !newDueDate.isAfter(parentTask.getDueDate())) {
                     subtask.setDueDate(newDueDate);
                 }
             }
@@ -137,5 +140,15 @@ public class ProgressService {
 
         userRepository.saveAll(userRepository.findUsersWithEnoughXpForDailyQuota());
         userRepository.saveAll(userRepository.findUsersWhoAreNotOffAndMissedDailyQuotaToday());
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
+    public void penalizeForOverDueTasks() {
+        taskRepository.findAllTasksOverDeadline()
+                .forEach(task -> {
+                    User user = task.getUser();
+                    user.setCurrentXp(user.getCurrentXp() - 1);
+                });
     }
 }

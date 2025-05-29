@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import tyler.server.entity.Priority;
 import tyler.server.entity.Task;
 import tyler.server.entity.User;
+import tyler.server.repository.TaskRepository;
 import tyler.server.repository.UserRepository;
 import tyler.server.service.ProgressService;
 
@@ -23,6 +24,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ProgressServiceTest {
+    @Mock
+    private TaskRepository taskRepository;
     @Mock
     private UserRepository userRepository;
 
@@ -557,5 +560,25 @@ class ProgressServiceTest {
         assertThat(user.getCurrentStreak()).isEqualTo(5);
         assertThat(user.getCurrentXp()).isEqualTo(100);
         assertThat(user.getLastAchievedDate()).isEqualTo(today.minusDays(1));
+    }
+
+    @Test
+    void penalizeForOverDueTasks_ShouldDecrementUserXp() {
+        int initialXp = 10;
+        User user = User.builder()
+                .currentXp(initialXp)
+                .build();
+
+        Task task = Task.builder()
+                .id(1L)
+                .deadline(LocalDate.now().minusDays(1))
+                .user(user)
+                .build();
+
+        when(taskRepository.findAllTasksOverDeadline()).thenReturn(List.of(task));
+
+        progressService.penalizeForOverDueTasks();
+
+        assertThat(user.getCurrentXp()).isEqualTo(initialXp - 1);
     }
 }

@@ -23,6 +23,7 @@ import tyler.server.repository.TaskRepository;
 import tyler.server.entity.Task;
 import tyler.server.validation.TaskValidator;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -89,6 +90,13 @@ public class TaskService {
 
         existing.setName(request.name());
         existing.setDescription(request.description());
+
+        if (existing.getDeadline().isBefore(LocalDate.now())) {
+            User user = existing.getUser();
+            user.setCurrentXp(user.getCurrentXp() - existing.getRemainingXp());
+            existing.setRemainingXp((byte) 0);
+        }
+
         existing.setDueDate(request.dueDate());
         existing.setDeadline(request.deadline());
 

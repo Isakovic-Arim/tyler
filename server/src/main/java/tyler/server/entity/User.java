@@ -52,7 +52,6 @@ public class User implements UserDetails {
     private List<Task> tasks = new ArrayList<>();
 
     @Column(name = "current_xp", nullable = false)
-    @Min(value = 0, message = "Current XP cannot be negative")
     private int currentXp;
 
     @Column(name = "daily_xp_quota", nullable = false)
