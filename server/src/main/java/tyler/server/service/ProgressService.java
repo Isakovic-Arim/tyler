@@ -144,11 +144,20 @@ public class ProgressService {
 
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
-    public void penalizeForOverDueTasks() {
+    public void penalizeForOverDeadlineTasks() {
         taskRepository.findAllTasksOverDeadline()
                 .forEach(task -> {
                     User user = task.getUser();
                     user.setCurrentXp(user.getCurrentXp() - 1);
+                });
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
+    public void penalizeForOverDueDateTasks() {
+        taskRepository.findAllTasksOverDueDate()
+                .forEach(task -> {
+                    task.setRemainingXp((byte) Math.min((task.getRemainingXp() - 1), 0));
                 });
     }
 }

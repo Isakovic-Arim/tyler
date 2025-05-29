@@ -563,7 +563,7 @@ class ProgressServiceTest {
     }
 
     @Test
-    void penalizeForOverDueTasks_ShouldDecrementUserXp() {
+    void penalizeForOverDeadlineTasks_ShouldDecrementUserXp() {
         int initialXp = 10;
         User user = User.builder()
                 .currentXp(initialXp)
@@ -577,8 +577,24 @@ class ProgressServiceTest {
 
         when(taskRepository.findAllTasksOverDeadline()).thenReturn(List.of(task));
 
-        progressService.penalizeForOverDueTasks();
+        progressService.penalizeForOverDeadlineTasks();
 
         assertThat(user.getCurrentXp()).isEqualTo(initialXp - 1);
+    }
+
+    @Test
+    void penalizeForOverDueTasks_ShouldDecrementTaskXp() {
+        Task task = Task.builder()
+                .id(1L)
+                .remainingXp((byte) 1)
+                .build();
+
+        when(taskRepository.findAllTasksOverDueDate()).thenReturn(List.of(task));
+
+        progressService.penalizeForOverDueDateTasks();
+        assertThat(user.getCurrentXp()).isEqualTo(0);
+
+        progressService.penalizeForOverDueDateTasks();
+        assertThat(user.getCurrentXp()).isEqualTo(0);
     }
 }
