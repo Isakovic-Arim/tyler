@@ -20,9 +20,11 @@ import java.util.List;
 @Validated
 public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
+    private final ProgressService progressService;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, ProgressService progressService) {
         this.userRepository = userRepository;
+        this.progressService = progressService;
     }
 
     @Override
@@ -56,9 +58,12 @@ public class UserService implements UserDetailsService {
         if (user.getDaysOff().contains(dayOff)) {
             throw new IllegalStateException("Day off already set for this date");
         }
+        if (user.getTasks().stream().anyMatch(task -> task.getDeadline().isEqual(dayOff))) {
+            throw new IllegalStateException("Cannot take a day off if you have a deadline on that day");
+        }
         user.getDaysOff().add(dayOff);
         user.setDaysOffPerWeek(--daysOffPerWeek);
-        userRepository.save(user);
+        progressService.relocateTasksForOffDays(user);
     }
 
     public void removeDayOff(String username, @CurrentWeek LocalDate dayOff) {
@@ -71,6 +76,7 @@ public class UserService implements UserDetailsService {
         }
         user.setDaysOffPerWeek((byte) (user.getDaysOffPerWeek() + 1));
         userRepository.save(user);
+        progressService.relocateTasksForOffDays(user);
     }
 
     @Scheduled(cron = "59 59 23 * * ?")

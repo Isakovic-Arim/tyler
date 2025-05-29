@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import tyler.server.entity.User;
 import tyler.server.repository.UserRepository;
+import tyler.server.service.ProgressService;
 import tyler.server.service.UserService;
 
 import java.time.LocalDate;
@@ -27,6 +28,8 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ProgressService progressService;
 
     @InjectMocks
     private UserService userService;
@@ -128,7 +131,6 @@ class UserServiceTest {
         userService.setDayOff(username, dayOff);
 
         assertThat(testUser.getDaysOff()).contains(dayOff);
-        verify(userRepository).save(testUser);
     }
 
     @Test

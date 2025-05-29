@@ -59,12 +59,25 @@ public class ProgressService {
             LocalDate newDueDate = findNextAvailableDate(user, task.getDueDate());
             if (newDueDate != null && !newDueDate.isAfter(task.getDeadline())) {
                 task.setDueDate(newDueDate);
+                relocateSubtasks(task, user);
+            }
+        }
+    }
+
+    private void relocateSubtasks(Task parentTask, User user) {
+        for (Task subtask : parentTask.getSubtasks()) {
+            if (!subtask.isDone() && subtask.getDueDate() != null) {
+                LocalDate newDueDate = findNextAvailableDate(user, subtask.getDueDate());
+                if (newDueDate != null && !newDueDate.isAfter(subtask.getDeadline()) &&
+                    !newDueDate.isAfter(parentTask.getDueDate())) {
+                    subtask.setDueDate(newDueDate);
+                }
             }
         }
     }
 
     private LocalDate findNextAvailableDate(User user, LocalDate currentDate) {
-        LocalDate nextDate = currentDate.plusDays(1);
+        LocalDate nextDate = currentDate;
         while (user.getDaysOff().contains(nextDate)) {
             nextDate = nextDate.plusDays(1);
         }

@@ -1,5 +1,6 @@
 package tyler.server.integration.resource.user;
 
+import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -7,9 +8,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.test.context.support.WithMockUser;
 import tyler.server.integration.resource.BaseResourceTest;
+import tyler.server.repository.PriorityRepository;
 import tyler.server.repository.RefreshTokenRepository;
 import tyler.server.repository.UserRepository;
 import tyler.server.entity.User;
+import tyler.server.entity.Task;
+import tyler.server.entity.Priority;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -17,18 +21,30 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.HashSet;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 class UserResourceTest extends BaseResourceTest {
 
+    @Autowired
+    private PriorityRepository priorityRepository;
     @Autowired
     private UserRepository userRepository;
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
+
+    private Priority priority;
     private User user;
     private Map<String, String> cookies;
 
     @BeforeAll
     void setup() {
+        priority = Priority.builder()
+                .name("High")
+                .xp((byte) 5)
+                .build();
         user = User.builder()
                 .username("user")
                 .passwordHash(passwordEncoder.encode("test"))
@@ -37,6 +53,7 @@ class UserResourceTest extends BaseResourceTest {
                 .currentStreak(0)
                 .daysOffPerWeek((byte) 2)
                 .build();
+        priorityRepository.save(priority);
         userRepository.save(user);
 
         cookies = getAuthCookies(user.getUsername(), "test");
@@ -45,6 +62,7 @@ class UserResourceTest extends BaseResourceTest {
     @AfterEach
     void cleanUpEach() {
         user.setDaysOff(new HashSet<>());
+        user.setDaysOffPerWeek((byte) 2);
         userRepository.save(user);
     }
 
@@ -52,19 +70,6 @@ class UserResourceTest extends BaseResourceTest {
     void tearDown() {
         refreshTokenRepository.deleteAll();
         userRepository.delete(user);
-    }
-
-    @Test
-    @WithMockUser(username = "user")
-    void setDayOff_hasEnoughDaysOff_returnsNoContent() {
-        user.setDaysOffPerWeek((byte) 2);
-        LocalDate dayOff = LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
-        givenCookies(cookies)
-                .body(dayOff)
-                .when()
-                .post("/users/me/day-off")
-                .then()
-                .statusCode(204);
     }
 
     @Test
@@ -150,5 +155,154 @@ class UserResourceTest extends BaseResourceTest {
                 .post("/users/me/day-off")
                 .then()
                 .statusCode(400);
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void setDayOff_ShouldRelocateTasks() {
+        Task urgentTask = Task.builder()
+                .name("Urgent Task")
+                .dueDate(LocalDate.now().plusDays(1))
+                .deadline(LocalDate.now().plusDays(2))
+                .priority(priority)
+                .user(user)
+                .build();
+
+        Task normalTask = Task.builder()
+                .name("Normal Task")
+                .dueDate(LocalDate.now().plusDays(1))
+                .deadline(LocalDate.now().plusDays(3))
+                .priority(priority)
+                .user(user)
+                .build();
+
+        user.addTask(urgentTask);
+        user.addTask(normalTask);
+        userRepository.save(user);
+
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        givenCookies(cookies)
+                .body(tomorrow)
+                .when()
+                .post("/users/me/day-off")
+                .then()
+                .statusCode(204);
+
+        // Refresh user from database
+        user = entityManagerFactory.createEntityManager().createQuery("SELECT u FROM User u JOIN u.tasks WHERE u.id = :id", User.class)
+                .setParameter("id", user.getId())
+                .getSingleResult();
+
+        // Verify tasks were relocated correctly
+        Task relocatedUrgentTask = user.getTasks().stream()
+                .filter(t -> t.getName().equals("Urgent Task"))
+                .findFirst()
+                .orElseThrow();
+        Task relocatedNormalTask = user.getTasks().stream()
+                .filter(t -> t.getName().equals("Normal Task"))
+                .findFirst()
+                .orElseThrow();
+
+        // Urgent task should stay on deadline day
+        assertThat(relocatedUrgentTask.getDueDate()).isEqualTo(LocalDate.now().plusDays(2));
+        // Normal task should be moved to next available day
+        assertThat(relocatedNormalTask.getDueDate()).isEqualTo(tomorrow.plusDays(1));
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void removeDayOff_ShouldRelocateTasks() {
+        // Create tasks
+        Task task = Task.builder()
+                .name("Test Task")
+                .dueDate(LocalDate.now().plusDays(1))
+                .deadline(LocalDate.now().plusDays(2))
+                .priority(priority)
+                .user(user)
+                .build();
+
+        user.addTask(task);
+        userRepository.save(user);
+
+        // Set tomorrow and day after tomorrow as days off
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        LocalDate dayAfterTomorrow = LocalDate.now().plusDays(2);
+        user.getDaysOff().add(tomorrow);
+        user.getDaysOff().add(dayAfterTomorrow);
+        user.setDaysOffPerWeek((byte) 0);
+        userRepository.save(user);
+
+        // Remove tomorrow as day off
+        givenCookies(cookies)
+                .when()
+                .queryParam("date", tomorrow.toString())
+                .delete("/users/me/day-off")
+                .then()
+                .statusCode(204);
+
+        // Refresh user from database
+        user = entityManagerFactory.createEntityManager().createQuery("SELECT u FROM User u JOIN u.tasks WHERE u.id = :id", User.class)
+                .setParameter("id", user.getId())
+                .getSingleResult();
+
+        // Verify task was relocated to tomorrow
+        Task relocatedTask = user.getTasks().stream()
+                .filter(t -> t.getName().equals("Test Task"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(relocatedTask.getDueDate()).isEqualTo(tomorrow);
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void setDayOff_ShouldHandleSubtasks() {
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+
+        // Create parent task and subtask
+        Task parentTask = Task.builder()
+                .name("Parent Task")
+                .dueDate(tomorrow)
+                .deadline(tomorrow.plusDays(1))
+                .priority(priority)
+                .user(user)
+                .build();
+
+        Task subtask = Task.builder()
+                .name("Subtask")
+                .dueDate(tomorrow)
+                .deadline(tomorrow.plusDays(1))
+                .priority(priority)
+                .user(user)
+                .build();
+
+        parentTask.addSubtask(subtask);
+        user.addTask(parentTask);
+        userRepository.save(user);
+
+        givenCookies(cookies)
+                .body(tomorrow)
+                .when()
+                .post("/users/me/day-off")
+                .then()
+                .statusCode(204);
+
+        // Refresh user from database
+        user = entityManagerFactory.createEntityManager().createQuery("SELECT u FROM User u JOIN u.tasks WHERE u.id = :id", User.class)
+                .setParameter("id", user.getId())
+                .getSingleResult();
+
+        // Verify both parent and subtask were relocated
+        Task relocatedParentTask = user.getTasks().stream()
+                .filter(t -> t.getName().equals("Parent Task"))
+                .findFirst()
+                .orElseThrow();
+        Task relocatedSubtask = relocatedParentTask.getSubtasks().stream()
+                .filter(t -> t.getName().equals("Subtask"))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(relocatedParentTask.getDueDate()).isEqualTo(tomorrow.plusDays(1));
+        assertThat(relocatedSubtask.getDueDate()).isEqualTo(tomorrow.plusDays(1));
     }
 }

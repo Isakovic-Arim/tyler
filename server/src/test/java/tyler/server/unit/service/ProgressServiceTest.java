@@ -270,6 +270,162 @@ class ProgressServiceTest {
     }
 
     @Test
+    void relocateTasksForOffDays_ShouldMoveTasksToDeadline_WhenAllFutureDaysAreOff() {
+        LocalDate tomorrow = today.plusDays(1);
+        LocalDate dayAfterTomorrow = today.plusDays(2);
+
+        Task task = Task.builder()
+                .id(2L)
+                .name("Task with future deadline")
+                .dueDate(tomorrow)
+                .deadline(dayAfterTomorrow)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        user.addTask(task);
+
+        user.setDaysOff(Set.of(today, tomorrow));
+
+        progressService.relocateTasksForOffDays(user);
+
+        assertThat(task.getDueDate()).isEqualTo(dayAfterTomorrow);
+    }
+
+    @Test
+    void relocateTasksForOffDays_ShouldKeepTaskOnDeadlineDay_WhenDeadlineIsToday() {
+        Task task = Task.builder()
+                .id(2L)
+                .name("Task due today")
+                .dueDate(today)
+                .deadline(today)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        user.addTask(task);
+
+        // Set today as off day
+        user.setDaysOff(Set.of(today));
+
+        progressService.relocateTasksForOffDays(user);
+
+        // Task should stay on today since it's the deadline
+        assertThat(task.getDueDate()).isEqualTo(today);
+    }
+
+    @Test
+    void relocateTasksForOffDays_ShouldHandleSubtasksCorrectly() {
+        LocalDate tomorrow = today.plusDays(1);
+        LocalDate dayAfterTomorrow = today.plusDays(2);
+
+        Task parentTask = Task.builder()
+                .id(2L)
+                .name("Parent Task")
+                .dueDate(tomorrow)
+                .deadline(dayAfterTomorrow)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        Task subtask = Task.builder()
+                .id(3L)
+                .name("Subtask")
+                .dueDate(tomorrow)
+                .deadline(dayAfterTomorrow)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        parentTask.addSubtask(subtask);
+        user.addTask(parentTask);
+
+        // Set tomorrow as off day
+        user.setDaysOff(Set.of(tomorrow));
+
+        progressService.relocateTasksForOffDays(user);
+
+        // Both parent and subtask should be moved to day after tomorrow
+        assertThat(parentTask.getDueDate()).isEqualTo(dayAfterTomorrow);
+        assertThat(subtask.getDueDate()).isEqualTo(dayAfterTomorrow);
+    }
+
+    @Test
+    void relocateTasksForOffDays_ShouldNotMoveSubtasksBeyondParentDueDate() {
+        LocalDate tomorrow = today.plusDays(1);
+        LocalDate dayAfterTomorrow = today.plusDays(2);
+
+        Task parentTask = Task.builder()
+                .id(2L)
+                .name("Parent Task")
+                .dueDate(tomorrow)
+                .deadline(dayAfterTomorrow)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        Task subtask = Task.builder()
+                .id(3L)
+                .name("Subtask")
+                .dueDate(tomorrow)
+                .deadline(dayAfterTomorrow.plusDays(1)) // Subtask has later deadline
+                .priority(priority)
+                .user(user)
+                .build();
+
+        parentTask.addSubtask(subtask);
+        user.addTask(parentTask);
+
+        // Set tomorrow as off day
+        user.setDaysOff(Set.of(tomorrow));
+
+        progressService.relocateTasksForOffDays(user);
+
+        // Parent should be moved to day after tomorrow
+        assertThat(parentTask.getDueDate()).isEqualTo(dayAfterTomorrow);
+        // Subtask should not be moved beyond parent's due date
+        assertThat(subtask.getDueDate()).isEqualTo(dayAfterTomorrow);
+    }
+
+    @Test
+    void relocateTasksForOffDays_ShouldHandleMultipleTasksWithDifferentDeadlines() {
+        LocalDate tomorrow = today.plusDays(1);
+        LocalDate dayAfterTomorrow = today.plusDays(2);
+        LocalDate threeDaysLater = today.plusDays(3);
+
+        Task urgentTask = Task.builder()
+                .id(2L)
+                .name("Urgent Task")
+                .dueDate(tomorrow)
+                .deadline(tomorrow)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        Task normalTask = Task.builder()
+                .id(3L)
+                .name("Normal Task")
+                .dueDate(tomorrow)
+                .deadline(threeDaysLater)
+                .priority(priority)
+                .user(user)
+                .build();
+
+        user.addTask(urgentTask);
+        user.addTask(normalTask);
+
+        // Set tomorrow as off day
+        user.setDaysOff(Set.of(tomorrow));
+
+        progressService.relocateTasksForOffDays(user);
+
+        // Urgent task should stay on tomorrow (deadline day)
+        assertThat(urgentTask.getDueDate()).isEqualTo(tomorrow);
+        // Normal task should be moved to day after tomorrow
+        assertThat(normalTask.getDueDate()).isEqualTo(dayAfterTomorrow);
+    }
+
+    @Test
     void checkDailyStreaks_shouldResetStreakForEligibleUsers() {
         User user1 = new User();
         user1.setCurrentStreak(5);
