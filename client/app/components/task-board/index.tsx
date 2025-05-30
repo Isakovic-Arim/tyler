@@ -7,7 +7,7 @@ import TaskCalendar from "./calendar-view"
 import AddTaskPopover from "./add-task-dialog"
 import TaskUpdatePopover from "./update-task-dialog"
 import { Plus } from "lucide-react"
-import UserProfileSidebar from "./user-profile"
+import UserProfileSidebar from "../user-profile"
 
 export default function TaskBoard({user: initialUser }: { user: UserProfile }) {
     const [tasks, setTasks] = useState<TaskResponseDto[]>([])
