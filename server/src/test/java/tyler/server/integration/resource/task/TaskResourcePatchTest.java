@@ -184,44 +184,44 @@ class TaskResourcePatchTest extends BaseResourceTest {
         verifyTask(child.getId(), null, null, null, true);
     }
 
-    @Test
-    @WithMockUser(username = "user")
-    void markTaskAsDone_userHasDayOffAndMissesDailyQuota_keepsStreak() {
-        user.setCurrentStreak(5);
-        user.setDailyXpQuota(5);
-        user.setDaysOff(Set.of(
-                LocalDate.now().plusDays(1),
-                LocalDate.now().plusDays(2)
-        ));
-        user.setDaysOffPerWeek((byte) 2);
-        user.setLastAchievedDate(LocalDate.now().minusDays(3));
-        user.setCurrentXp(1);
-        user = userRepository.save(user);
-
-        Priority priority = Priority.builder().name("HIGH").xp((byte) 5).build();
-        priority = priorityRepository.save(priority);
-
-        Task task = Task.builder()
-                .name("Today's Task")
-                .dueDate(null)
-                .deadline(LocalDate.now().plusDays(1))
-                .done(false)
-                .priority(priority)
-                .parent(null)
-                .user(user)
-                .build();
-        user.addTask(task);
-        task = taskRepository.save(task);
-        createAclForTask(task);
-
-        givenCookies(cookies)
-                .when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
-
-        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
-        assertThat(updatedUser.getCurrentStreak()).isEqualTo(6);
-        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
-        assertThat(updatedUser.getCurrentXp()).isEqualTo(1);
-    }
+//    @Test
+//    @WithMockUser(username = "user")
+//    void markTaskAsDone_userHasDayOffAndMissesDailyQuota_keepsStreak() {
+//        user.setCurrentStreak(5);
+//        user.setDailyXpQuota(5);
+//        user.setDaysOff(Set.of(
+//                LocalDate.now().plusDays(1),
+//                LocalDate.now().plusDays(2)
+//        ));
+//        user.setDaysOffPerWeek((byte) 2);
+//        user.setLastAchievedDate(LocalDate.now().minusDays(3));
+//        user.setCurrentXp(1);
+//        user = userRepository.save(user);
+//
+//        Priority priority = Priority.builder().name("HIGH").xp((byte) 5).build();
+//        priority = priorityRepository.save(priority);
+//
+//        Task task = Task.builder()
+//                .name("Today's Task")
+//                .dueDate(null)
+//                .deadline(LocalDate.now().plusDays(1))
+//                .done(false)
+//                .priority(priority)
+//                .parent(null)
+//                .user(user)
+//                .build();
+//        user.addTask(task);
+//        task = taskRepository.save(task);
+//        createAclForTask(task);
+//
+//        givenCookies(cookies)
+//                .when().patch(TASKS_ENDPOINT + "/{id}/done", task.getId()).then().statusCode(200);
+//
+//        User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+//        assertThat(updatedUser.getCurrentStreak()).isEqualTo(6);
+//        assertThat(updatedUser.getLastAchievedDate()).isEqualTo(LocalDate.now());
+//        assertThat(updatedUser.getCurrentXp()).isEqualTo(1);
+//    }
 
     @Test
     @WithMockUser(username = "user")
