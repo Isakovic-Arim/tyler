@@ -37,22 +37,24 @@ export default function DayColumn({
         <div
             className={`border border-gray-200 rounded-lg bg-white ${
                 isDayOff ? "bg-purple-50 border-purple-200" : ""
-            } min-h-[300px] flex flex-col`}
+            } min-h-[250px] sm:min-h-[300px] flex flex-col`}
         >
             {/* Day Header */}
-            <div className={`p-3 border-b border-gray-100 ${isDayOff ? "bg-purple-100" : "bg-gray-50"}`}>
+            <div className={`p-2 sm:p-3 border-b border-gray-100 ${isDayOff ? "bg-purple-100" : "bg-gray-50"}`}>
                 <div className="flex items-center justify-between">
                     <div
-                        className={`flex-1 ${isCurrentWeek ? "cursor-pointer hover:bg-white hover:bg-opacity-50 rounded p-1 -m-1" : ""}`}
+                        className={`flex-1 ${
+                            isCurrentWeek ? "cursor-pointer hover:bg-white hover:bg-opacity-50 rounded p-1 -m-1" : ""
+                        }`}
                         onClick={handleDayOffClick}
                         title={isCurrentWeek ? (isDayOff ? "Click to remove day off" : "Click to set as day off") : ""}
                     >
                         <div className="flex items-center gap-2">
                             <div>
-                                <p className="text-sm font-medium text-gray-600">{dayName}</p>
-                                <p className="text-lg font-bold text-gray-900">{dayNumber}</p>
+                                <p className="text-xs sm:text-sm font-medium text-gray-600">{dayName}</p>
+                                <p className="text-base sm:text-lg font-bold text-gray-900">{dayNumber}</p>
                             </div>
-                            {isDayOff && <Calendar size={16} className="text-purple-600" />}
+                            {isDayOff && <Calendar size={14} className="text-purple-600 sm:w-4 sm:h-4" />}
                         </div>
                     </div>
 
@@ -62,7 +64,7 @@ export default function DayColumn({
                             className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all duration-150 text-gray-400 hover:text-blue-600"
                             title="Add task"
                         >
-                            <Plus size={16} />
+                            <Plus size={14} className="sm:w-4 sm:h-4" />
                         </button>
                     )}
                 </div>
@@ -75,18 +77,18 @@ export default function DayColumn({
             </div>
 
             {/* Tasks */}
-            <div className="p-2 flex-1 space-y-2">
+            <div className="p-1 sm:p-2 flex-1 space-y-1 sm:space-y-2">
                 {!isDayOff &&
                     tasks.map((task) => (
                         <TaskCard key={task.id} task={task} onClick={onTaskClick} onDone={onDone} onDelete={onDelete} />
                     ))}
 
                 {!isDayOff && tasks.length === 0 && (
-                    <div className="text-center py-8">
-                        <p className="text-gray-400 text-sm">No tasks</p>
+                    <div className="text-center py-4 sm:py-8">
+                        <p className="text-gray-400 text-xs sm:text-sm">No tasks</p>
                         <button
                             onClick={() => onAddTask(date)}
-                            className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            className="mt-2 text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium"
                         >
                             Add a task
                         </button>
@@ -94,9 +96,9 @@ export default function DayColumn({
                 )}
 
                 {isDayOff && (
-                    <div className="text-center py-8">
-                        <Calendar size={32} className="text-purple-400 mx-auto mb-2" />
-                        <p className="text-purple-600 text-sm font-medium">Day Off</p>
+                    <div className="text-center py-4 sm:py-8">
+                        <Calendar size={24} className="text-purple-400 mx-auto mb-2 sm:w-8 sm:h-8" />
+                        <p className="text-purple-600 text-xs sm:text-sm font-medium">Day Off</p>
                         <p className="text-purple-500 text-xs mt-1">Enjoy your rest day!</p>
                         {isCurrentWeek && (
                             <button

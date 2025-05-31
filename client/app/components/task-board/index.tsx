@@ -6,16 +6,17 @@ import type { UserProfile } from "~/model/user"
 import TaskCalendar from "./calendar-view"
 import AddTaskPopover from "./add-task-dialog"
 import TaskUpdatePopover from "./update-task-dialog"
-import { Plus } from "lucide-react"
+import { Plus, Menu } from "lucide-react"
 import UserProfileSidebar from "../user-profile"
 
-export default function TaskBoard({user: initialUser }: { user: UserProfile }) {
+export default function TaskBoard({ daysOff, user: initialUser }: { daysOff: string[]; user: UserProfile }) {
     const [tasks, setTasks] = useState<TaskResponseDto[]>([])
     const [user, setUser] = useState<UserProfile>(initialUser)
     const [selectedTask, setSelectedTask] = useState<TaskResponseDto | null>(null)
     const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
     const [showAddTask, setShowAddTask] = useState(false)
     const [addTaskDate, setAddTaskDate] = useState<string>("")
+    const [sidebarOpen, setSidebarOpen] = useState(false)
 
     const startOfCurrentWeek = addWeeks(startOfWeek(new Date(), { weekStartsOn: 0 }), currentWeekOffset)
     const daysOfWeek = Array.from({ length: 7 }, (_, i) => addDays(startOfCurrentWeek, i))
@@ -102,63 +103,91 @@ export default function TaskBoard({user: initialUser }: { user: UserProfile }) {
 
     return (
         <div className="flex h-screen bg-gray-50">
+            {/* Mobile Sidebar Overlay */}
+            {sidebarOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+            )}
+
             {/* Profile Sidebar */}
-            <UserProfileSidebar user={user} />
+            <div
+                className={`fixed lg:static inset-y-0 left-0 z-50 lg:z-auto transform ${
+                    sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                } lg:translate-x-0 transition-transform duration-300 ease-in-out lg:transition-none`}
+            >
+                <UserProfileSidebar user={user} currentWeekDates={daysOfWeek} />
+            </div>
 
             {/* Main Content */}
-            <div className="flex-1 p-6 overflow-auto">
-                {/* Header */}
-                <div className="flex justify-between items-center mb-6">
-                    <button
-                        onClick={() => setCurrentWeekOffset((prev) => prev - 1)}
-                        className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-colors shadow-sm border border-gray-200"
-                    >
-                        ← Previous
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* Mobile Header */}
+                <div className="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+                    <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Menu size={24} className="text-gray-600" />
                     </button>
-                    <div className="text-center">
-                        <h1 className="text-2xl font-bold text-gray-900">Week of {format(startOfCurrentWeek, "MMM d, yyyy")}</h1>
-                        {currentWeekOffset === 0 && (
-                            <p className="text-sm text-gray-500 mt-1">Click on day headers to set days off (max 2 per week)</p>
-                        )}
-                    </div>
-                    <button
-                        onClick={() => setCurrentWeekOffset((prev) => prev + 1)}
-                        className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-colors shadow-sm border border-gray-200"
-                    >
-                        Next →
-                    </button>
+                    <h1 className="text-lg font-semibold text-gray-900">Tyler</h1>
+                    <div className="w-10" /> {/* Spacer for centering */}
                 </div>
 
-                {/* Calendar View */}
-                <TaskCalendar
-                    daysOfWeek={daysOfWeek}
-                    daysOff={user.daysOff}
-                    groupedTasks={groupedTasks}
-                    onTaskClick={handleTaskClick}
-                    onDone={handleDone}
-                    onDelete={handleDelete}
-                    onAddTask={handleAddTask}
-                    onToggleDayOff={handleToggleDayOff}
-                    isCurrentWeek={currentWeekOffset === 0}
-                />
+                {/* Desktop Content */}
+                <div className="flex-1 p-4 lg:p-6 overflow-auto">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                        <button
+                            onClick={() => setCurrentWeekOffset((prev) => prev - 1)}
+                            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-colors shadow-sm border border-gray-200 text-sm sm:text-base"
+                        >
+                            ← Previous
+                        </button>
+                        <div className="text-center">
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                                Week of {format(startOfCurrentWeek, "MMM d, yyyy")}
+                            </h1>
+                            {currentWeekOffset === 0 && (
+                                <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                                    Click on day headers to set days off (max 2 per week)
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setCurrentWeekOffset((prev) => prev + 1)}
+                            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-colors shadow-sm border border-gray-200 text-sm sm:text-base"
+                        >
+                            Next →
+                        </button>
+                    </div>
 
-                {/* Floating Add Button */}
-                <button
-                    onClick={() => handleAddTask()}
-                    className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center z-40"
-                >
-                    <Plus size={24} />
-                </button>
+                    {/* Calendar View */}
+                    <TaskCalendar
+                        daysOfWeek={daysOfWeek}
+                        daysOff={user.daysOff}
+                        groupedTasks={groupedTasks}
+                        onTaskClick={handleTaskClick}
+                        onDone={handleDone}
+                        onDelete={handleDelete}
+                        onAddTask={handleAddTask}
+                        onToggleDayOff={handleToggleDayOff}
+                        isCurrentWeek={currentWeekOffset === 0}
+                    />
 
-                {/* Popovers */}
-                <AddTaskPopover
-                    isOpen={showAddTask}
-                    onClose={() => setShowAddTask(false)}
-                    onSave={handleRefresh}
-                    defaultDate={addTaskDate}
-                />
+                    {/* Floating Add Button */}
+                    <button
+                        onClick={() => handleAddTask()}
+                        className="fixed bottom-6 right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center z-30"
+                    >
+                        <Plus size={20} className="sm:hidden" />
+                        <Plus size={24} className="hidden sm:block" />
+                    </button>
 
-                <TaskUpdatePopover task={selectedTask} onClose={() => setSelectedTask(null)} onSave={handleRefresh} />
+                    {/* Popovers */}
+                    <AddTaskPopover
+                        isOpen={showAddTask}
+                        onClose={() => setShowAddTask(false)}
+                        onSave={handleRefresh}
+                        defaultDate={addTaskDate}
+                    />
+
+                    <TaskUpdatePopover task={selectedTask} onClose={() => setSelectedTask(null)} onSave={handleRefresh} />
+                </div>
             </div>
         </div>
     )

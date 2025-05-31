@@ -19,37 +19,40 @@ export default function TaskCard({
 
     return (
         <div
-            className={`bg-white border rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-150 cursor-pointer group ${
+            className={`bg-white border rounded-lg p-2 sm:p-3 shadow-sm hover:shadow-md transition-all duration-150 cursor-pointer group ${
                 task.done ? "opacity-60 bg-gray-50" : ""
             } ${isOverdue ? "border-red-200 bg-red-50" : isDueToday ? "border-orange-200 bg-orange-50" : "border-gray-200"}`}
         >
             <div onClick={() => onClick(task)} className="mb-2">
-                <h4 className={`font-medium text-sm ${task.done ? "line-through text-gray-500" : "text-gray-900"}`}>
+                <h4 className={`font-medium text-xs sm:text-sm ${task.done ? "line-through text-gray-500" : "text-gray-900"}`}>
                     {task.name}
                 </h4>
-                {task.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{task.description}</p>}
+                {task.description && (
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2 hidden sm:block">{task.description}</p>
+                )}
             </div>
 
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                     <input
                         type="checkbox"
                         checked={task.done}
                         onChange={() => onDone(task)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 rounded focus:ring-blue-500"
                         onClick={(e) => e.stopPropagation()}
                     />
                     <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <Calendar size={12} />
-                        <span>{format(dueDate, "MMM d")}</span>
+                        <Calendar size={10} className="sm:w-3 sm:h-3" />
+                        <span className="hidden sm:inline">{format(dueDate, "MMM d")}</span>
+                        <span className="sm:hidden">{format(dueDate, "M/d")}</span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-1">
                     {task.subtasks > 0 && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">{task.subtasks}</span>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-1 sm:px-2 py-1 rounded-full">{task.subtasks}</span>
                     )}
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">{task.remainingXp} XP</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-1 sm:px-2 py-1 rounded-full">{task.remainingXp}</span>
                     <button
                         onClick={(e) => {
                             e.stopPropagation()
@@ -57,7 +60,7 @@ export default function TaskCard({
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded text-red-500 transition-all duration-150"
                     >
-                        <Trash2 size={12} />
+                        <Trash2 size={10} className="sm:w-3 sm:h-3" />
                     </button>
                 </div>
             </div>
