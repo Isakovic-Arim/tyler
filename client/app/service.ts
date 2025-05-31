@@ -1,22 +1,39 @@
 import axios from "axios"
 
+let globalShowError: ((message: string) => void) | null = null
+
+export const setGlobalToast = (showError: (message: string) => void) => {
+    globalShowError = showError
+}
+
 export const httpClient = axios.create({
-    baseURL: 'http://localhost:8080',
+    baseURL: "http://localhost:8080",
     withCredentials: true,
 })
 
 httpClient.interceptors.response.use(
-    response => response,
-    async error => {
+    (response) => response,
+    async (error) => {
         const originalRequest = error.config
+
         if (error.response?.status === 401) {
             try {
-                await axios.post('http://localhost:8080/auth/refresh', {}, { withCredentials: true })
+                await axios.post("http://localhost:8080/auth/refresh", {}, {withCredentials: true})
                 return httpClient(originalRequest)
-            } catch (error) {
-                return Promise.reject(error)
+            } catch (refreshError) {
+                if (globalShowError) {
+                    globalShowError("Your session has expired. Please log in again.")
+                }
+                return Promise.reject(refreshError)
             }
         }
+
+        if (globalShowError && error.response) {
+            let {detail, status} = error.response.data
+
+            globalShowError(`${status}: ${detail}`)
+        }
+
         return Promise.reject(error)
-    }
+    },
 )

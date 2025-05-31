@@ -1,8 +1,10 @@
 import type { Route } from "./+types/home"
-import { httpClient } from "~/service"
+import { httpClient, setGlobalToast } from "~/service"
 import type { UserProfile } from "~/model/user"
 import TaskBoard from "~/components/task-board"
-import { redirect, useNavigate } from "react-router"
+import { redirect } from "react-router"
+import { useToast } from "~/components/toast"
+import { useEffect } from "react"
 
 export function meta({}: Route.MetaArgs) {
     return [{ title: "Tyler" }, { name: "description", content: "Task management for losers like you." }]
@@ -10,6 +12,11 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home({ loaderData }: { loaderData: UserProfile }) {
     const user = loaderData
+    const { showError } = useToast()
+
+    useEffect(() => {
+        setGlobalToast(showError)
+    }, [showError])
 
     return (
         <div className="h-screen">
