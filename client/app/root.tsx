@@ -5,6 +5,7 @@ import type { Route } from "./+types/root"
 import "./app.css"
 import { ToastProvider, ToastContainer } from "./components/toast"
 import { TutorialProvider, TutorialOverlay } from "./components/tutorial"
+import { ThemeProvider } from "./components/theme"
 
 export function Layout({ children }: { children: React.ReactNode }) {
     return (
@@ -16,13 +17,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Links />
         </head>
         <body>
-        <ToastProvider>
-            <TutorialProvider>
-                {children}
-                <ToastContainer />
-                <TutorialOverlay />
-            </TutorialProvider>
-        </ToastProvider>
+        <ThemeProvider>
+            <ToastProvider>
+                <TutorialProvider>
+                    {children}
+                    <ToastContainer />
+                    <TutorialOverlay />
+                </TutorialProvider>
+            </ToastProvider>
+        </ThemeProvider>
         <ScrollRestoration />
         <Scripts />
         </body>

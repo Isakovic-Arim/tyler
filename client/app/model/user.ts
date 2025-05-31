@@ -4,5 +4,6 @@ export interface UserProfile {
     dailyQuota: number;
     currentStreak: number;
     daysOffPerWeek: number;
-    daysOff: string[]
+    daysOff: string[];
+    lastAchievedDate: string;
 }

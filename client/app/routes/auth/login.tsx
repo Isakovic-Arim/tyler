@@ -1,11 +1,14 @@
 import type React from "react"
-import { useState } from "react"
-import { httpClient } from "~/service"
+import { useState, useEffect } from "react"
+import { httpClient, setGlobalToast } from "~/service"
 import { useNavigate, Link } from "react-router"
 import { Eye, EyeOff, User, Lock, LogIn, AlertCircle } from "lucide-react"
+import { useToast } from "~/components/toast"
+import { ThemeToggle } from "~/components/theme"
 
 export default function LoginPage() {
     const navigate = useNavigate()
+    const { showError, showSuccess } = useToast()
 
     const [formData, setFormData] = useState({
         username: "",
@@ -14,6 +17,11 @@ export default function LoginPage() {
     const [showPassword, setShowPassword] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
+
+    // Set up global toast for HTTP client
+    useEffect(() => {
+        setGlobalToast(showError)
+    }, [showError])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target
@@ -47,6 +55,7 @@ export default function LoginPage() {
             })
 
             if (response.status === 200) {
+                showSuccess("Welcome back! Login successful.")
                 navigate("/")
             }
         } catch (error: any) {
@@ -65,36 +74,41 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
+                {/* Theme Toggle */}
+                <div className="flex justify-end mb-4">
+                    <ThemeToggle />
+                </div>
+
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-16 h-16 bg-blue-600 dark:bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                         <LogIn size={32} className="text-white" />
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-                    <p className="text-gray-600">Sign in to your Tyler account</p>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Sign in to your Tyler account</p>
                 </div>
 
                 {/* Login Form */}
-                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* Error Message */}
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-                                <AlertCircle size={20} className="text-red-600 flex-shrink-0" />
-                                <p className="text-red-700 text-sm">{error}</p>
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center gap-3">
+                                <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0" />
+                                <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
                             </div>
                         )}
 
                         {/* Username Field */}
                         <div>
-                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Username
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <User size={20} className="text-gray-400" />
+                                    <User size={20} className="text-gray-400 dark:text-gray-500" />
                                 </div>
                                 <input
                                     id="username"
@@ -102,7 +116,7 @@ export default function LoginPage() {
                                     type="text"
                                     value={formData.username}
                                     onChange={handleChange}
-                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                                    className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 text-gray-900 dark:text-white"
                                     placeholder="Enter your username"
                                     autoComplete="username"
                                     disabled={isLoading}
@@ -112,12 +126,12 @@ export default function LoginPage() {
 
                         {/* Password Field */}
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Password
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock size={20} className="text-gray-400" />
+                                    <Lock size={20} className="text-gray-400 dark:text-gray-500" />
                                 </div>
                                 <input
                                     id="password"
@@ -125,7 +139,7 @@ export default function LoginPage() {
                                     type={showPassword ? "text" : "password"}
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                                    className="w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 text-gray-900 dark:text-white"
                                     placeholder="Enter your password"
                                     autoComplete="current-password"
                                     disabled={isLoading}
@@ -133,7 +147,7 @@ export default function LoginPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
                                     disabled={isLoading}
                                 >
                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -163,9 +177,12 @@ export default function LoginPage() {
 
                     {/* Register Link */}
                     <div className="mt-6 text-center">
-                        <p className="text-gray-600">
+                        <p className="text-gray-600 dark:text-gray-400">
                             Don't have an account?{" "}
-                            <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                            <Link
+                                to="/register"
+                                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+                            >
                                 Create one here
                             </Link>
                         </p>
@@ -174,7 +191,9 @@ export default function LoginPage() {
 
                 {/* Footer */}
                 <div className="text-center mt-8">
-                    <p className="text-gray-500 text-sm">By signing in, you agree to our terms of service and privacy policy.</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">
+                        By signing in, you agree to our terms of service and privacy policy.
+                    </p>
                 </div>
             </div>
         </div>

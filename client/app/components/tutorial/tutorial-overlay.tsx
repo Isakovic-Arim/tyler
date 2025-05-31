@@ -167,7 +167,7 @@ export default function TutorialOverlay() {
             {/* Tooltip */}
             <div
                 ref={tooltipRef}
-                className="absolute bg-white rounded-xl shadow-xl border border-gray-200 p-6 w-80 pointer-events-auto"
+                className="absolute bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-80 pointer-events-auto"
                 style={{
                     top: tooltipPosition.top,
                     left: tooltipPosition.left,
@@ -175,17 +175,17 @@ export default function TutorialOverlay() {
                 }}
             >
                 <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-bold text-gray-900">{currentStep.title}</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">{currentStep.title}</h3>
                     <button
                         onClick={skipTutorial}
-                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                         aria-label="Close tutorial"
                     >
-                        <X size={18} className="text-gray-500" />
+                        <X size={18} className="text-gray-500 dark:text-gray-400" />
                     </button>
                 </div>
 
-                <p className="text-gray-600 mb-6">{currentStep.content}</p>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">{currentStep.content}</p>
 
                 <div className="flex justify-between items-center">
                     <div className="flex gap-1">
@@ -193,7 +193,7 @@ export default function TutorialOverlay() {
                             <div
                                 key={index}
                                 className={`w-2 h-2 rounded-full ${
-                                    index === currentStepIndex ? "bg-blue-600" : "bg-gray-300"
+                                    index === currentStepIndex ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
                                 } transition-colors`}
                             />
                         ))}
@@ -203,7 +203,7 @@ export default function TutorialOverlay() {
                         {currentStepIndex > 0 && (
                             <button
                                 onClick={prevStep}
-                                className="px-3 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1 text-sm"
+                                className="px-3 py-1.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-1 text-sm"
                             >
                                 <ChevronLeft size={16} />
                                 Back

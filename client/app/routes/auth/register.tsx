@@ -1,11 +1,14 @@
 import type React from "react"
-import { useState } from "react"
-import { httpClient } from "~/service"
+import { useState, useEffect } from "react"
+import { httpClient, setGlobalToast } from "~/service"
 import { useNavigate, Link } from "react-router"
 import { Eye, EyeOff, User, Lock, UserPlus, AlertCircle, CheckCircle } from "lucide-react"
+import { useToast } from "~/components/toast"
+import { ThemeToggle } from "~/components/theme"
 
 export default function RegisterPage() {
     const navigate = useNavigate()
+    const { showError, showSuccess } = useToast()
 
     const [formData, setFormData] = useState({
         username: "",
@@ -17,6 +20,11 @@ export default function RegisterPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+    // Set up global toast for HTTP client
+    useEffect(() => {
+        setGlobalToast(showError)
+    }, [showError])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target
@@ -99,9 +107,8 @@ export default function RegisterPage() {
             })
 
             if (response.status === 200) {
-                navigate("/login", {
-                    state: { message: "Account created successfully! Please sign in." },
-                })
+                showSuccess("Account created successfully! Please sign in.")
+                navigate("/login")
             }
         } catch (error: any) {
             console.error("Error during registration:", error)
@@ -119,36 +126,41 @@ export default function RegisterPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
+                {/* Theme Toggle */}
+                <div className="flex justify-end mb-4">
+                    <ThemeToggle />
+                </div>
+
                 {/* Header */}
                 <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-16 h-16 bg-purple-600 dark:bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
                         <UserPlus size={32} className="text-white" />
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-                    <p className="text-gray-600">Join Tyler and start managing your tasks</p>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Create Account</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Join Tyler and start managing your tasks</p>
                 </div>
 
                 {/* Register Form */}
-                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {/* General Error Message */}
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-                                <AlertCircle size={20} className="text-red-600 flex-shrink-0" />
-                                <p className="text-red-700 text-sm">{error}</p>
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center gap-3">
+                                <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0" />
+                                <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
                             </div>
                         )}
 
                         {/* Username Field */}
                         <div>
-                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Username
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <User size={20} className="text-gray-400" />
+                                    <User size={20} className="text-gray-400 dark:text-gray-500" />
                                 </div>
                                 <input
                                     id="username"
@@ -156,28 +168,30 @@ export default function RegisterPage() {
                                     type="text"
                                     value={formData.username}
                                     onChange={handleChange}
-                                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white ${
-                                        fieldErrors.username ? "border-red-300" : "border-gray-300"
+                                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 text-gray-900 dark:text-white ${
+                                        fieldErrors.username ? "border-red-300 dark:border-red-600" : "border-gray-300 dark:border-gray-600"
                                     }`}
                                     placeholder="Choose a username"
                                     autoComplete="username"
                                     disabled={isLoading}
                                 />
                             </div>
-                            {fieldErrors.username && <p className="mt-1 text-sm text-red-600">{fieldErrors.username}</p>}
-                            <p className="mt-1 text-xs text-gray-500">
+                            {fieldErrors.username && (
+                                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.username}</p>
+                            )}
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                 3-20 characters, letters, numbers, hyphens, and underscores only
                             </p>
                         </div>
 
                         {/* Password Field */}
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Password
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock size={20} className="text-gray-400" />
+                                    <Lock size={20} className="text-gray-400 dark:text-gray-500" />
                                 </div>
                                 <input
                                     id="password"
@@ -185,8 +199,8 @@ export default function RegisterPage() {
                                     type={showPassword ? "text" : "password"}
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white ${
-                                        fieldErrors.password ? "border-red-300" : "border-gray-300"
+                                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 text-gray-900 dark:text-white ${
+                                        fieldErrors.password ? "border-red-300 dark:border-red-600" : "border-gray-300 dark:border-gray-600"
                                     }`}
                                     placeholder="Create a password"
                                     autoComplete="new-password"
@@ -195,39 +209,48 @@ export default function RegisterPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
                                     disabled={isLoading}
                                 >
                                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>
                             </div>
-                            {fieldErrors.password && <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>}
+                            {fieldErrors.password && (
+                                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.password}</p>
+                            )}
 
                             {/* Password Strength Indicator */}
                             {formData.password && (
                                 <div className="mt-2">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                        <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                             <div
                                                 className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color}`}
                                                 style={{ width: `${passwordStrength.strength}%` }}
                                             ></div>
                                         </div>
-                                        <span className="text-xs font-medium text-gray-600">{passwordStrength.label}</span>
+                                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      {passwordStrength.label}
+                    </span>
                                     </div>
-                                    <p className="text-xs text-gray-500">Use 8+ characters with a mix of letters, numbers & symbols</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        Use 8+ characters with a mix of letters, numbers & symbols
+                                    </p>
                                 </div>
                             )}
                         </div>
 
                         {/* Confirm Password Field */}
                         <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                            <label
+                                htmlFor="confirmPassword"
+                                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                            >
                                 Confirm Password
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock size={20} className="text-gray-400" />
+                                    <Lock size={20} className="text-gray-400 dark:text-gray-500" />
                                 </div>
                                 <input
                                     id="confirmPassword"
@@ -235,8 +258,10 @@ export default function RegisterPage() {
                                     type={showConfirmPassword ? "text" : "password"}
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
-                                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white ${
-                                        fieldErrors.confirmPassword ? "border-red-300" : "border-gray-300"
+                                    className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 text-gray-900 dark:text-white ${
+                                        fieldErrors.confirmPassword
+                                            ? "border-red-300 dark:border-red-600"
+                                            : "border-gray-300 dark:border-gray-600"
                                     }`}
                                     placeholder="Confirm your password"
                                     autoComplete="new-password"
@@ -245,17 +270,17 @@ export default function RegisterPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
                                     disabled={isLoading}
                                 >
                                     {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>
                             </div>
                             {fieldErrors.confirmPassword && (
-                                <p className="mt-1 text-sm text-red-600">{fieldErrors.confirmPassword}</p>
+                                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.confirmPassword}</p>
                             )}
                             {formData.confirmPassword && formData.password === formData.confirmPassword && (
-                                <div className="mt-1 flex items-center gap-1 text-green-600">
+                                <div className="mt-1 flex items-center gap-1 text-green-600 dark:text-green-400">
                                     <CheckCircle size={16} />
                                     <span className="text-sm">Passwords match</span>
                                 </div>
@@ -284,9 +309,12 @@ export default function RegisterPage() {
 
                     {/* Login Link */}
                     <div className="mt-6 text-center">
-                        <p className="text-gray-600">
+                        <p className="text-gray-600 dark:text-gray-400">
                             Already have an account?{" "}
-                            <Link to="/login" className="text-purple-600 hover:text-purple-700 font-medium transition-colors">
+                            <Link
+                                to="/login"
+                                className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium transition-colors"
+                            >
                                 Sign in here
                             </Link>
                         </p>
@@ -295,7 +323,7 @@ export default function RegisterPage() {
 
                 {/* Footer */}
                 <div className="text-center mt-8">
-                    <p className="text-gray-500 text-sm">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">
                         By creating an account, you agree to our terms of service and privacy policy.
                     </p>
                 </div>
