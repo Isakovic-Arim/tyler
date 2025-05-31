@@ -12,8 +12,8 @@ import java.util.Optional;
 public interface UserRepository extends CrudRepository<User, Long> {
     Optional<User> findByUsername(String username);
     boolean existsByUsername(String username);
-    @Query("SELECT u FROM User u JOIN FETCH u.daysOff d WHERE d = CURRENT_DATE")
-    List<User> findUsersWithDayOffToday();
+    @Query("SELECT u FROM User u JOIN FETCH u.daysOff d WHERE d < CURRENT_DATE")
+    List<User> findUsersWithDayOffInPast();
     @Query(
       "SELECT u " +
       "FROM User u " +

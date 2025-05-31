@@ -1,6 +1,8 @@
 package tyler.server.service;
 
 import jakarta.transaction.Transactional;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -79,11 +81,17 @@ public class UserService implements UserDetailsService {
         progressService.relocateTasksForOffDays(user);
     }
 
-    @Scheduled(cron = "59 59 23 * * ?")
+    @EventListener(ApplicationReadyEvent.class)
+    @Scheduled(cron = "0 0 0 * * ?")
     public void revokeDayOff() {
-        userRepository.findUsersWithDayOffToday()
+        LocalDate now = LocalDate.now();
+        userRepository.findUsersWithDayOffInPast()
                 .forEach(user -> {
-                    user.getDaysOff().removeIf(dayOff -> dayOff.isEqual(LocalDate.now()));
+                    long removedCount = user.getDaysOff().stream()
+                            .filter(dayOff -> dayOff.isBefore(now))
+                            .count();
+                    user.getDaysOff().removeIf(dayOff -> dayOff.isBefore(now));
+                    user.setDaysOffPerWeek((byte) (user.getDaysOffPerWeek() + removedCount));
                     userRepository.save(user);
                 });
     }

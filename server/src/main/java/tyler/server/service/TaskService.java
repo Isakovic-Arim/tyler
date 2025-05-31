@@ -117,6 +117,11 @@ public class TaskService {
     @Transactional
     public void markTaskAsDone(Long id) {
         Task task = findTaskById(id);
+
+        if (task.isDone()) {
+            throw new IllegalStateException("Task is already marked as done");
+        }
+
         Task parent = task.getParent();
 
         if (parent != null) {
