@@ -133,7 +133,6 @@ public class TaskService {
 
         task.getSubtasks().forEach(subtask -> {
             subtask.setDone(true);
-            progressService.handleTaskCompletion(subtask);
         });
     }
 
