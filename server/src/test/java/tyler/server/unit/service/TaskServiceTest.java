@@ -329,7 +329,7 @@ class TaskServiceTest {
 
         assertThat(parent.isDone()).isTrue();
         assertThat(sub.isDone()).isTrue();
-        verify(progressService, times(2)).handleTaskCompletion(any(Task.class));
+        verify(progressService).handleTaskCompletion(any(Task.class));
     }
 
     @Test
