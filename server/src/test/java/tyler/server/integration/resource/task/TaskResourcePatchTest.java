@@ -28,6 +28,7 @@ import tyler.server.repository.UserRepository;
 
 import java.time.*;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -259,5 +260,51 @@ class TaskResourcePatchTest extends BaseResourceTest {
         givenCookies(cookies).when().patch(TASKS_ENDPOINT + "/{id}/done", child.getId()).then().statusCode(200);
         verifyTask(child.getId(), null, null, null, true);
         verifyTask(parent.getId(), null, null, null, false);
+    }
+
+    @Test
+    @WithMockUser(username = "user")
+    void markSubtaskDone_completesParentTask_parentAndChildRemainPresent() {
+        Task parent = Task.builder()
+                .name("Parent Task")
+                .dueDate(null)
+                .deadline(LocalDate.now().plusDays(1))
+                .done(false)
+                .priority(priority)
+                .remainingXp(priority.getXp())
+                .parent(null)
+                .user(user)
+                .build();
+        user.addTask(parent);
+        parent = taskRepository.save(parent);
+        createAclForTask(parent);
+
+        Task child = Task.builder()
+                .name("Child Task")
+                .dueDate(null)
+                .deadline(LocalDate.now().plusDays(1))
+                .done(false)
+                .priority(priority)
+                .remainingXp(priority.getXp())
+                .parent(null)
+                .user(user)
+                .build();
+        user.addTask(child);
+        parent.addSubtask(child);
+        child = taskRepository.save(child);
+        createAclForTask(child);
+
+        givenCookies(cookies)
+                .when()
+                .patch(TASKS_ENDPOINT + "/{id}/done", child.getId())
+                .then()
+                .statusCode(200);
+
+        verifyTask(child.getId(), null, null, null, true);
+        verifyTask(parent.getId(), null, null, null, false);
+
+        List<Task> tasks = taskRepository.findAllTasks();
+        long userTasksCount = tasks.stream().filter(t -> t.getUser().getId().equals(user.getId())).count();
+        assertThat(userTasksCount).isEqualTo(2L);
     }
 }

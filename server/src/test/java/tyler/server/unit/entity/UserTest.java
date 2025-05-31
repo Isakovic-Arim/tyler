@@ -125,8 +125,8 @@ class UserTest {
 
     @Test
     void validate_ValidDaysOff_ShouldPass() {
-        LocalDate now = LocalDate.now();
-        user.setDaysOff(Set.of(now.plusDays(1), now.plusDays(2)));
+        LocalDate sunday = LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        user.setDaysOff(Set.of(sunday));
 
         Set<ConstraintViolation<User>> violations = validator.validate(user);
         assertTrue(violations.isEmpty());

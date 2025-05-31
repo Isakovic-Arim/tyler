@@ -212,7 +212,6 @@ class UserResourceTest extends BaseResourceTest {
     @Test
     @WithMockUser(username = "user")
     void removeDayOff_ShouldRelocateTasks() {
-        // Create tasks
         Task task = Task.builder()
                 .name("Test Task")
                 .dueDate(LocalDate.now().plusDays(1))
@@ -224,34 +223,29 @@ class UserResourceTest extends BaseResourceTest {
         user.addTask(task);
         userRepository.save(user);
 
-        // Set tomorrow and day after tomorrow as days off
-        LocalDate tomorrow = LocalDate.now().plusDays(1);
-        LocalDate dayAfterTomorrow = LocalDate.now().plusDays(2);
-        user.getDaysOff().add(tomorrow);
-        user.getDaysOff().add(dayAfterTomorrow);
-        user.setDaysOffPerWeek((byte) 0);
+        LocalDate sunday = LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        user.getDaysOff().add(sunday);
+        user.setDaysOffPerWeek((byte) 1);
         userRepository.save(user);
 
-        // Remove tomorrow as day off
         givenCookies(cookies)
                 .when()
-                .queryParam("date", tomorrow.toString())
+                .queryParam("date", sunday.toString())
                 .delete("/users/me/day-off")
                 .then()
                 .statusCode(204);
 
-        // Refresh user from database
-        user = entityManagerFactory.createEntityManager().createQuery("SELECT u FROM User u JOIN u.tasks WHERE u.id = :id", User.class)
+        user = entityManagerFactory.createEntityManager()
+                .createQuery("SELECT u FROM User u JOIN u.tasks WHERE u.id = :id", User.class)
                 .setParameter("id", user.getId())
                 .getSingleResult();
 
-        // Verify task was relocated to tomorrow
         Task relocatedTask = user.getTasks().stream()
                 .filter(t -> t.getName().equals("Test Task"))
                 .findFirst()
                 .orElseThrow();
 
-        assertThat(relocatedTask.getDueDate()).isEqualTo(tomorrow);
+        assertThat(relocatedTask.getDueDate()).isEqualTo(sunday);
     }
 
     @Test

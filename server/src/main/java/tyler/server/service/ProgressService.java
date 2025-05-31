@@ -22,6 +22,7 @@ public class ProgressService {
         this.userRepository = userRepository;
     }
 
+    @Transactional
     public void handleTaskCompletion(Task task) {
         User user = task.getUser();
         if (user == null) return;

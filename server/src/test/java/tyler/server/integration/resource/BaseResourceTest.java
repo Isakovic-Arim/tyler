@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
 import tyler.server.dto.auth.AuthRequest;
+import tyler.server.repository.PriorityRepository;
 
 import java.util.Map;
 
@@ -34,11 +35,14 @@ public abstract class BaseResourceTest {
 
     @Autowired
     protected PasswordEncoder passwordEncoder;
+    @Autowired
+    private PriorityRepository priorityRepository;
 
     @BeforeAll
     void setUp(@Value("${local.server.port}") int port) {
         RestAssured.port = port;
         RestAssured.registerParser("text/plain", Parser.TEXT);
+        priorityRepository.deleteAll();
     }
 
     protected Map<String, String> getAuthCookies(String username, String password) {

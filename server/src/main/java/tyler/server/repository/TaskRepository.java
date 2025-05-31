@@ -11,7 +11,7 @@ import java.util.List;
 @Repository
 public interface TaskRepository extends CrudRepository<Task, Long> {
     @PostFilter("hasPermission(filterObject, 'read')")
-    @Query("SELECT t FROM Task t JOIN FETCH t.user")
+    @Query("SELECT t FROM Task t JOIN FETCH t.user LEFT JOIN FETCH t.parent p")
     List<Task> findAllTasks();
     @Query("SELECT t FROM Task t JOIN FETCH t.user WHERE t.deadline < CURRENT_DATE AND t.done = false")
     List<Task> findAllTasksOverDeadline();

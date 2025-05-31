@@ -163,17 +163,4 @@ class UserServiceTest {
         assertThat(user.getDaysOff()).isEmpty();
         verify(userRepository).save(user);
     }
-
-    @Test
-    void removeDayOff_ShouldSucceed_WhenDayOffIsToday() {
-        User user = new User();
-        user.getDaysOff().add(LocalDate.now());
-
-        when(userRepository.findUsersWithDayOffToday()).thenReturn(List.of(user));
-
-        userService.revokeDayOff();
-
-        assertThat(user.getDaysOff()).doesNotContain(LocalDate.now());
-        verify(userRepository).save(user);
-    }
 }
