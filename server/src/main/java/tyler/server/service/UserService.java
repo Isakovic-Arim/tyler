@@ -87,16 +87,12 @@ public class UserService implements UserDetailsService {
         LocalDate now = LocalDate.now();
         userRepository.findUsersWithDayOffInPast()
                 .forEach(user -> {
-                    long removedCount = user.getDaysOff().stream()
-                            .filter(dayOff -> dayOff.isBefore(now))
-                            .count();
                     user.getDaysOff().removeIf(dayOff -> dayOff.isBefore(now));
-                    user.setDaysOffPerWeek((byte) (user.getDaysOffPerWeek() + removedCount));
                     userRepository.save(user);
                 });
     }
 
-    @Scheduled(cron = "59 59 23 * * 0")
+    @Scheduled(cron = "0 0 0 * * 1")
     public void resetDaysOffPerWeek() {
         userRepository.findAll().forEach(user -> {
             user.setDaysOffPerWeek((byte) 2);
