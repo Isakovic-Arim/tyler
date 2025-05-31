@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react"
-import { httpClient } from "~/service"
-import { format, parseISO, startOfWeek, addDays, addWeeks, isSameDay } from "date-fns"
-import type { TaskResponseDto } from "~/model/task"
-import type { UserProfile } from "~/model/user"
+import {useEffect, useState} from "react"
+import {httpClient} from "~/service"
+import {format, parseISO, startOfWeek, addDays, addWeeks, isSameDay} from "date-fns"
+import type {TaskResponseDto} from "~/model/task"
+import type {UserProfile} from "~/model/user"
 import TaskCalendar from "./calendar-view"
 import AddTaskPopover from "./add-task-dialog"
 import TaskUpdatePopover from "./update-task-dialog"
-import { Plus, Menu } from "lucide-react"
+import {Plus, Menu, HelpCircle} from "lucide-react"
 import UserProfileSidebar from "../user-profile"
+import {useTutorial} from "~/components/tutorial";
 
-export default function TaskBoard({ daysOff, user: initialUser }: { daysOff: string[]; user: UserProfile }) {
+export default function TaskBoard({daysOff, user: initialUser}: { daysOff: string[]; user: UserProfile }) {
     const [tasks, setTasks] = useState<TaskResponseDto[]>([])
     const [user, setUser] = useState<UserProfile>(initialUser)
     const [selectedTask, setSelectedTask] = useState<TaskResponseDto | null>(null)
@@ -17,9 +18,10 @@ export default function TaskBoard({ daysOff, user: initialUser }: { daysOff: str
     const [showAddTask, setShowAddTask] = useState(false)
     const [addTaskDate, setAddTaskDate] = useState<string>("")
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const {startTutorial, isTutorialCompleted} = useTutorial()
 
-    const startOfCurrentWeek = addWeeks(startOfWeek(new Date(), { weekStartsOn: 0 }), currentWeekOffset)
-    const daysOfWeek = Array.from({ length: 7 }, (_, i) => addDays(startOfCurrentWeek, i))
+    const startOfCurrentWeek = addWeeks(startOfWeek(new Date(), {weekStartsOn: 0}), currentWeekOffset)
+    const daysOfWeek = Array.from({length: 7}, (_, i) => addDays(startOfCurrentWeek, i))
 
     useEffect(() => {
         httpClient.get<TaskResponseDto[]>("tasks").then((res) => {
@@ -105,7 +107,8 @@ export default function TaskBoard({ daysOff, user: initialUser }: { daysOff: str
         <div className="flex h-screen bg-gray-50">
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+                     onClick={() => setSidebarOpen(false)}/>
             )}
 
             {/* Profile Sidebar */}
@@ -114,18 +117,25 @@ export default function TaskBoard({ daysOff, user: initialUser }: { daysOff: str
                     sidebarOpen ? "translate-x-0" : "-translate-x-full"
                 } lg:translate-x-0 transition-transform duration-300 ease-in-out lg:transition-none`}
             >
-                <UserProfileSidebar user={user} currentWeekDates={daysOfWeek} />
+                <UserProfileSidebar user={user} currentWeekDates={daysOfWeek}/>
             </div>
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Mobile Header */}
                 <div className="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-                    <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Menu size={24} className="text-gray-600" />
+                    <button onClick={() => setSidebarOpen(true)}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <Menu size={24} className="text-gray-600"/>
                     </button>
                     <h1 className="text-lg font-semibold text-gray-900">Tyler</h1>
-                    <div className="w-10" /> {/* Spacer for centering */}
+                    <button
+                        onClick={startTutorial}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        aria-label="Start tutorial"
+                    >
+                        <HelpCircle size={20} className="text-gray-600"/>
+                    </button>
                 </div>
 
                 {/* Desktop Content */}
@@ -148,12 +158,22 @@ export default function TaskBoard({ daysOff, user: initialUser }: { daysOff: str
                                 </p>
                             )}
                         </div>
-                        <button
-                            onClick={() => setCurrentWeekOffset((prev) => prev + 1)}
-                            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-colors shadow-sm border border-gray-200 text-sm sm:text-base"
-                        >
-                            Next →
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={startTutorial}
+                                className="hidden sm:flex items-center gap-1 px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-colors shadow-sm border border-gray-200 text-sm"
+                                aria-label="Start tutorial"
+                            >
+                                <HelpCircle size={16} className="text-gray-600"/>
+                                <span>{isTutorialCompleted ? "Restart Tutorial" : "Start Tutorial"}</span>
+                            </button>
+                            <button
+                                onClick={() => setCurrentWeekOffset((prev) => prev + 1)}
+                                className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg transition-colors shadow-sm border border-gray-200 text-sm sm:text-base"
+                            >
+                                Next →
+                            </button>
+                        </div>
                     </div>
 
                     {/* Calendar View */}
@@ -174,8 +194,8 @@ export default function TaskBoard({ daysOff, user: initialUser }: { daysOff: str
                         onClick={() => handleAddTask()}
                         className="fixed bottom-6 right-6 w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center z-30"
                     >
-                        <Plus size={20} className="sm:hidden" />
-                        <Plus size={24} className="hidden sm:block" />
+                        <Plus size={20} className="sm:hidden"/>
+                        <Plus size={24} className="hidden sm:block"/>
                     </button>
 
                     {/* Popovers */}
@@ -186,7 +206,8 @@ export default function TaskBoard({ daysOff, user: initialUser }: { daysOff: str
                         defaultDate={addTaskDate}
                     />
 
-                    <TaskUpdatePopover task={selectedTask} onClose={() => setSelectedTask(null)} onSave={handleRefresh} />
+                    <TaskUpdatePopover task={selectedTask} onClose={() => setSelectedTask(null)}
+                                       onSave={handleRefresh}/>
                 </div>
             </div>
         </div>

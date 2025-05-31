@@ -4,6 +4,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
 import type { Route } from "./+types/root"
 import "./app.css"
 import { ToastProvider, ToastContainer } from "./components/toast"
+import { TutorialProvider, TutorialOverlay } from "./components/tutorial"
 
 export function Layout({ children }: { children: React.ReactNode }) {
     return (
@@ -16,8 +17,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </head>
         <body>
         <ToastProvider>
-            {children}
-            <ToastContainer />
+            <TutorialProvider>
+                {children}
+                <ToastContainer />
+                <TutorialOverlay />
+            </TutorialProvider>
         </ToastProvider>
         <ScrollRestoration />
         <Scripts />
