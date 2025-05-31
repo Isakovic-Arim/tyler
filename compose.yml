@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16.8-alpine3.20
+    container_name: db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: 'UTC'
+      PGTZ: 'UTC'
+    ports:
+      - "5432:5432"
+
+  backend:
+    image: isakovicarim/tyler
+    container_name: backend
+    environment:
+      DB_URL: postgresql://db:5432/postgres
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      FRONTEND_URL: http://localhost:5173
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
