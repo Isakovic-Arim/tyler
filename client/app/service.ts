@@ -7,7 +7,7 @@ export const setGlobalToast = (showError: (message: string) => void) => {
 }
 
 export const httpClient = axios.create({
-    baseURL: "http://localhost:8080",
+    baseURL: '/api',
     withCredentials: true,
 })
 
@@ -18,7 +18,7 @@ httpClient.interceptors.response.use(
 
         if (error.response?.status === 401) {
             try {
-                await axios.post("http://localhost:8080/auth/refresh", {}, {withCredentials: true})
+                await axios.post(`/api/auth/refresh`, {}, {withCredentials: true})
                 return httpClient(originalRequest)
             } catch (refreshError) {
                 if (globalShowError) {

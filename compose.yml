@@ -17,8 +17,18 @@ services:
       DB_URL: postgresql://db:5432/postgres
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
-      FRONTEND_URL: http://localhost:5173
+      FRONTEND_URL: frontend
     ports:
       - "8080:8080"
     depends_on:
       - postgres
+
+  frontend:
+    build:
+      context: client
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
